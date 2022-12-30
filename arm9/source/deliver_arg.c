@@ -48,6 +48,7 @@ u8 *loadDeliverArg(void)
             {
                 memcpy(deliverArg, (const void *)0x20000000, 0x1000);
 
+                // Validate deliver arg
                 u32 testPattern = *(u32 *)(deliverArg + 0x438);
                 u32 crc = *(u32 *)(deliverArg + 0x43C);
                 u32 expectedCrc = crc32(deliverArg + 0x400, 0x140, 0xFFFFFFFF);
@@ -56,8 +57,18 @@ u8 *loadDeliverArg(void)
             }
             else // Legacy modes
             {
-                // Copy TWL stuff as-is
+                // Copy TWL deliver arg stuff as-is (0...0x300)
                 copyFromLegacyModeFcram(deliverArg, (const void *)0x20000000, 0x400);
+
+                // Validate TLNC (TWL launcher params) block
+                // Note: Nintendo doesn't do crcLen bound check
+                u8 *tlnc = deliverArg + 0x300;
+                bool hasMagic = memcmp(tlnc, "TLNC", 4) == 0;
+                u8 crcLen = tlnc[5];
+                u16 crc = *(u16 *)(tlnc + 6);
+                if (!hasMagic || crcLen <= 248 || crc != crc16(tlnc + 8, crcLen, 0xFFFF))
+                    memset(tlnc, 0, 0x100);
+
                 memset(deliverArg + 0x400, 0, 0xC00);
             }
         }
@@ -85,18 +96,46 @@ void commitDeliverArg(void)
         *(u32 *)(deliverArg + 0x43C) = crc32(deliverArg + 0x400, 0x140, 0xFFFFFFFF);
         memcpy((void *)0x20000000, deliverArg, 0x1000);
     }
-    else // Legacy modes
+    else // Legacy modes (just TWL mode, really)
     {
         copyToLegacyModeFcram((void *)0x20000000, deliverArg, 0x400);
     }
 }
 
+bool hasValidTlncAutobootParams(void)
+{
+    u8 *tlnc = loadDeliverArg() + 0x300; // loadDeliverArg clears invalid TLNC blocks
+    return memcmp(tlnc, "TLNC", 4) == 0 && (*(u16 *)(tlnc + 0x18) & 1) != 0;
+}
+
+bool isTwlToCtrLaunch(void)
+{
+    // assumes TLNC block is valid
+    u8 *tlnc = loadDeliverArg() + 0x300; // loadDeliverArg clears invalid TLNC blocks
+    u64 twlTid = *(u64 *)(tlnc + 0x10);
+
+    switch (twlTid & ~0xFFull)
+    {
+        case 0x0000000000000000ull: // TWL Launcher -> Home menu (note: NS checks full TID)
+        case 0x00030015484E4200ull: // TWL System Settings -> CTR System Settings (mset)
+            return true;
+        default:
+            return false;
+    }
+}
+
 static bool configureHomebrewAutobootCtr(u8 *deliverArg)
 {
+    static const u8 appmemtypesO3ds[] = { 0, 2, 3, 4, 5 };
+    static const u8 appmemtypesN3ds[] = { 6, 7, 7, 7, 7 };
+
     u64 hbldrTid = configData.hbldr3dsxTitleId;
     hbldrTid = hbldrTid == 0 ? HBLDR_DEFAULT_3DSX_TID : hbldrTid; // replicate Loader's behavior
     if ((hbldrTid >> 46) != 0x10) // Not a CTR titleId. Bail out
         return false;
+
+    u8 memtype = configData.autobootCtrAppmemtype;
+    deliverArg[0x400] = ISN3DS ? appmemtypesN3ds[memtype] : appmemtypesO3ds[memtype];
 
     // Determine whether to load from the SD card or from NAND. We don't support gamecards for this
     u32 category = (hbldrTid >> 32) & 0xFFFF;
@@ -106,10 +145,17 @@ static bool configureHomebrewAutobootCtr(u8 *deliverArg)
 
     // Tell NS to run the title, and that it's not a title jump from legacy mode
     *(u32 *)(deliverArg + 0x460) = (0 << 1) | (1 << 0);
+
+    CFG_BOOTENV = 1;
+
+    return true;
 }
 
 static bool configureHomebrewAutobootTwl(u8 *deliverArg)
 {
+    // Here, we pretend to be a TWL app rebooting into another TWL app.
+    // We get NS to do all the heavy lifting (starting NWM and AM, etc.) this way.
+
     memset(deliverArg + 0x000, 0, 0x300); // zero TWL deliver arg params
 
     // Now onto TLNC (launcher params):
@@ -120,7 +166,7 @@ static bool configureHomebrewAutobootTwl(u8 *deliverArg)
     tlnc[5] = 0x18; // length of data to calculate CRC over
 
     *(u64 *)(tlnc + 8) = 0; // old title ID
-    *(u64 *)(tlnc + 0x10) = 0x0003000448424C41ull; // new title ID
+    *(u64 *)(tlnc + 0x10) = configData.autobootTwlTitleId; // new title ID
     // bit4: "skip logo" ; bits2:1: NAND boot ; bit0: valid
     *(u16 *)(tlnc + 0x18) = (1 << 4) | (3 << 1) | (1 << 0);
 
@@ -133,6 +179,7 @@ static bool configureHomebrewAutobootTwl(u8 *deliverArg)
 
 bool configureHomebrewAutoboot(void)
 {
+    bool ret;
     u8 *deliverArg = loadDeliverArg();
 
     u32 bootenv = CFG_BOOTENV;
@@ -142,9 +189,21 @@ bool configureHomebrewAutoboot(void)
     if (mode != 0 || testPattern == 0xFFFF)
         return false; // bail out if this isn't a coldboot/plain reboot
 
-    (void)configureHomebrewAutobootCtr;
-    bool ret = configureHomebrewAutobootTwl(deliverArg);
+    switch (MULTICONFIG(AUTOBOOTMODE))
+    {
+        case 1:
+            ret = configureHomebrewAutobootCtr(deliverArg);
+            break;
+        case 2:
+            ret = configureHomebrewAutobootTwl(deliverArg);
+            break;
+        case 0:
+        default:
+            ret = false;
+            break;
+    }
 
-    commitDeliverArg();
+    if (ret)
+        commitDeliverArg();
     return ret;
 }

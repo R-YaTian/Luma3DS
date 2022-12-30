@@ -30,4 +30,8 @@
 
 u8 *loadDeliverArg(void);
 void commitDeliverArg(void);
+
+bool hasValidTlncAutobootParams(void);
+bool isTwlToCtrLaunch(void); // assumes TLNC block is valid
+
 bool configureHomebrewAutoboot(void);

@@ -183,7 +183,7 @@ u16 crc16(const void *data, size_t size, u16 initialValue)
 
 u32 crc32(const void *data, size_t size, u32 initialValue)
 {
-    static u16 lut[256] = {0};
+    static u32 lut[256] = {0};
     static bool lutInitialized = false;
 
     if (!lutInitialized)
