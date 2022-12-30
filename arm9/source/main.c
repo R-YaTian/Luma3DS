@@ -35,6 +35,7 @@
 #include "pin.h"
 #include "crypto.h"
 #include "memory.h"
+#include "deliver_arg.h"
 #include "screen.h"
 #include "i2c.h"
 #include "fmt.h"
@@ -178,6 +179,7 @@ void main(int argc, char **argv, u32 magicWord)
     }
 
     detectAndProcessExceptionDumps();
+    u8 *deliverArg = loadDeliverArg();
 
     //Attempt to read the configuration file
     needConfig = readConfig() ? MODIFY_CONFIGURATION : CREATE_CONFIGURATION;
@@ -229,15 +231,13 @@ void main(int argc, char **argv, u32 magicWord)
         }
 
         //Account for DSiWare soft resets if exiting TWL_FIRM
-        if(CFG_BOOTENV == 3)
-        {
-            static const u8 TLNC[] = {0x54, 0x4C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4E, 0x43};
-            if(memcmp((void *)0x20000C00, TLNC, 10) == 0) needToInitSd = true;
-        }
+        bool hasTlnc = memcmp(deliverArg + 0x300, "TLNC", 4) == 0;
+        if(CFG_BOOTENV == 3 && hasTlnc)
+            needToInitSd = true;
 
         /* Force the last used boot options if autobooting a TWL title, or unless a button is pressed
            or the no-forcing flag is set */
-        if(needToInitSd || memcmp((void *)0x20000300, "TLNC", 4) == 0 || (!pressed && !BOOTCFG_NOFORCEFLAG))
+        if(needToInitSd || hasTlnc || (!pressed && !BOOTCFG_NOFORCEFLAG))
         {
             nandType = (FirmwareSource)BOOTCFG_NAND;
             firmSource = (FirmwareSource)BOOTCFG_FIRM;
@@ -387,8 +387,12 @@ boot:
     switch(firmType)
     {
         case NATIVE_FIRM:
+        {
+            if (bootType != FIRMLAUNCH)
+                configureHomebrewAutoboot();
             res = patchNativeFirm(firmVersion, nandType, loadFromStorage, isFirmProtEnabled, needToInitSd, doUnitinfoPatch);
             break;
+        }
         case TWL_FIRM:
             res = patchTwlFirm(firmVersion, loadFromStorage, doUnitinfoPatch);
             break;

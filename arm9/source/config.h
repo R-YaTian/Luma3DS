@@ -28,6 +28,8 @@
 
 #include "types.h"
 
+#define HBLDR_DEFAULT_3DSX_TID 0x000400000D921E00ULL
+
 #define CONFIG(a)        (((configData.config >> (a)) & 1) != 0)
 #define MULTICONFIG(a)   ((configData.multiConfig >> (2 * (a))) & 3)
 #define BOOTCONFIG(a, b) ((configData.bootConfig >> (a)) & (b))
