@@ -61,7 +61,15 @@ typedef volatile s64 vs64;
 #define ISN3DS       (CFG11_SOCINFO & 2)
 #define ISDEVUNIT    (CFG_UNITINFO != 0)
 
-typedef struct {
+typedef struct ScreenFiltersCfgData {
+    u16 cct;
+    bool invert;
+    s64 gammaEnc;
+    s64 contrastEnc;
+    s64 brightnessEnc;
+} ScreenFiltersCfgData;
+
+typedef struct CfgData {
     u16 formatVersionMajor, formatVersionMinor;
 
     u32 config, multiConfig, bootConfig;
@@ -70,8 +78,13 @@ typedef struct {
     u64 hbldr3dsxTitleId;
     u32 rosalinaMenuCombo;
     u32 pluginLoaderFlags;
-    u16 screenFiltersCct;
     s16 ntpTzOffetMinutes;
+
+    ScreenFiltersCfgData topScreenFilter;
+    ScreenFiltersCfgData bottomScreenFilter;
+
+    u64 autobootTwlTitleId;
+    u8 autobootCtrAppmemtype;
 } CfgData;
 
 typedef struct
@@ -139,6 +152,7 @@ extern bool isSdMode;
 
 extern BootType bootType;
 
+extern char launchedPathForFatfs[256];
 extern u16 launchedFirmTidLow[8];
 extern u16 launchedPath[80+1];
 

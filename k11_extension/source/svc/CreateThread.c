@@ -1,6 +1,6 @@
 /*
 *   This file is part of Luma3DS
-*   Copyright (C) 2016-2020 Aurora Wright, TuxSH
+*   Copyright (C) 2016-2023 Aurora Wright, TuxSH
 *
 *   This program is free software: you can redistribute it and/or modify
 *   it under the terms of the GNU General Public License as published by
@@ -24,15 +24,14 @@
 *         reasonable ways as different from the original version.
 */
 
-/*
-*   Boyer-Moore Horspool algorithm adapted from http://www-igm.univ-mlv.fr/~lecroq/string/node18.html#SECTION00180
-*/
+#include "svc/CreateThread.h"
 
-#pragma once
+Result CreateThreadHook(Handle *outThreadHandle, u32 ep, u32 arg, u32 stackTop, s32 priority, s32 processorId)
+{
+    u32 flags = flagsOfProcess(currentCoreContext->objectContext.currentProcess);
+    if (isN3DS && CONFIG(REDIRECTAPPTHREADS) && processorId == 1 && (flags & 0xF00) == 0x100)
+        processorId = 2;
 
-#include <string.h>
-#include "types.h"
+    return CreateThread(outThreadHandle, ep, arg, stackTop, priority, processorId);
+}
 
-u8 *memsearch(u8 *startPos, const void *pattern, u32 size, u32 patternSize);
-void *copyFromLegacyModeFcram(void *dst, const void *src, size_t size);
-void *copyToLegacyModeFcram(void *dst, const void *src, size_t size);
