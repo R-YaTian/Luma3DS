@@ -142,7 +142,7 @@ Menu screenFiltersMenu = {
         { "[2300K]  偏暖白炽灯", METHOD, .method = &ScreenFiltersMenu_SetWarmIncandescent },
         { "[1900K]  蜡烛光", METHOD, .method = &ScreenFiltersMenu_SetCandle },
         { "[1200K]  火柴光", METHOD, .method = &ScreenFiltersMenu_SetEmber },
-        { "高级配置", METHOD, .method = &ScreenFiltersMenu_AdvancedConfiguration },
+        { "高级设置", METHOD, .method = &ScreenFiltersMenu_AdvancedConfiguration },
         {},
     }
 };
@@ -249,10 +249,10 @@ static void ScreenFiltersMenu_ClampFilter(ScreenFilter *filter)
     filter->brightness = CLAMP(filter->brightness, -1.0f, 1.0f);
 }
 
-static void ScreenFiltersMenu_AdvancedConfigurationChangeValue(int pos, int mult, bool sync)
+static void ScreenFiltersMenu_AdvancedConfigurationChangeValue(bool isTopScreen, int pos, int mult, bool sync)
 {
-    ScreenFilter *filter = pos >= 5 ? &bottomScreenFilter : &topScreenFilter;
-    ScreenFilter *otherFilter = pos >= 5 ? &topScreenFilter : &bottomScreenFilter;
+    ScreenFilter *filter = isTopScreen != true ? &bottomScreenFilter : &topScreenFilter;
+    ScreenFilter *otherFilter = isTopScreen != true ? &topScreenFilter : &bottomScreenFilter;
 
     int otherMult = sync ? mult : 0;
 
@@ -294,22 +294,22 @@ static u32 ScreenFiltersMenu_AdvancedConfigurationHelper(const ScreenFilter *fil
     char buf[64];
 
     Draw_DrawCharacter(10, posY, COLOR_TITLE, pos == offset++ ? '>' : ' ');
-    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "Temperature: %12dK    \n", filter->cct);
+    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "色温:      %12dK    \n", filter->cct);
 
     floatToString(buf, filter->gamma, 2, true);
     Draw_DrawCharacter(10, posY, COLOR_TITLE, pos == offset++ ? '>' : ' ');
-    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "Gamma:       %13s    \n", buf);
+    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "伽马:       %13s    \n", buf);
 
     floatToString(buf, filter->contrast, 2, true);
     Draw_DrawCharacter(10, posY, COLOR_TITLE, pos == offset++ ? '>' : ' ');
-    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "Contrast:    %13s    \n", buf);
+    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "对比度:     %13s    \n", buf);
 
     floatToString(buf, filter->brightness, 2, true);
     Draw_DrawCharacter(10, posY, COLOR_TITLE, pos == offset++ ? '>' : ' ');
-    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "Brightness:  %13s    \n", buf);
+    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "亮度:       %13s    \n", buf);
 
     Draw_DrawCharacter(10, posY, COLOR_TITLE, pos == offset++ ? '>' : ' ');
-    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "Invert:      %13s    \n", filter->invert ? "true" : "false");
+    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "反色:      %13s    \n", filter->invert ? "是" : "否");
 
     return posY;
 }
@@ -317,6 +317,7 @@ static u32 ScreenFiltersMenu_AdvancedConfigurationHelper(const ScreenFilter *fil
 void ScreenFiltersMenu_AdvancedConfiguration(void)
 {
     u32 posY;
+    u32 posMenuStart;
     u32 input = 0;
     u32 held = 0;
 
@@ -324,36 +325,42 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
     int mult = 1;
 
     bool sync = true;
+    bool showTopScreenMenu = true;
 
     do
     {
         Draw_Lock();
-        Draw_DrawString(10, 10, COLOR_TITLE, "Screen filters menu");
+        Draw_DrawString(10, 10, COLOR_TITLE, "屏幕滤镜菜单");
 
         posY = 30;
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "Use left/right to increase/decrease the sel. value.\n");
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "Hold R to change the value faster.\n");
-        posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "Update both screens: %s (L to toggle)   \n", sync ? "yes" : "no") + SPACING_Y;
+        posY = Draw_DrawString(10, posY, COLOR_WHITE, "使用左/右按键减小或增加设置项的参数值。\n");
+        posY = Draw_DrawString(10, posY, COLOR_WHITE, "按住R按键更快的改变设置项的参数值。\n");
+        posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "双屏幕同时更新：%s (L按键切换)   \n", sync ? "是" : "否") + SPACING_Y;
 
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "Top screen:\n");
-        posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&topScreenFilter, 0, pos, posY) + SPACING_Y;
-
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "Bottom screen:\n");
-        posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&bottomScreenFilter, 5, pos, posY) + SPACING_Y;
+        posMenuStart = posY;
+        if(showTopScreenMenu){
+            posY = Draw_DrawString(10, posMenuStart, COLOR_WHITE, "顶部屏幕：（Y按键切换）\n");
+            posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&topScreenFilter, 0, pos, posY) + SPACING_Y;
+        } else{
+            posY = Draw_DrawString(10, posMenuStart, COLOR_WHITE, "底部屏幕：（Y按键切换）\n");
+            posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&bottomScreenFilter, 0, pos, posY) + SPACING_Y;
+        }
 
         input = waitInputWithTimeoutEx(&held, -1);
         mult = (held & KEY_R) ? 10 : 1;
 
+        if (input & KEY_Y)
+            showTopScreenMenu = !showTopScreenMenu;
         if (input & KEY_L)
             sync = !sync;
         if (input & KEY_LEFT)
-            ScreenFiltersMenu_AdvancedConfigurationChangeValue(pos, -mult, sync);
+            ScreenFiltersMenu_AdvancedConfigurationChangeValue(showTopScreenMenu, pos, -mult, sync);
         if (input & KEY_RIGHT)
-            ScreenFiltersMenu_AdvancedConfigurationChangeValue(pos, mult, sync);
+            ScreenFiltersMenu_AdvancedConfigurationChangeValue(showTopScreenMenu, pos, mult, sync);
         if (input & KEY_UP)
-            pos = (10 + pos - 1) % 10;
+            pos = (5 + pos - 1) % 5;
         if (input & KEY_DOWN)
-            pos = (pos + 1) % 10;
+            pos = (pos + 1) % 5;
 
         Draw_FlushFramebuffer();
         Draw_Unlock();
