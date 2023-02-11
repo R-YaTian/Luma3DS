@@ -56,7 +56,7 @@
 
 #### 6.如何使用插件加载功能？
 
-> 以[ActionReplay v0.6.0](https://github.com/CynricXu/CTRPluginFramework-BlankTemplate/releases/tag/v0.6.0) 为例(该版本为mariohackandglitch最终提交修改)，将插件ActionReplay.3gx更名为default.3gx放入/luma/plugins/下，确保Luma3DS菜单中的插件加载选项为开启状态，进入游戏即可使用select按键呼出（可更改热键）。
+> 以[ActionReplay v0.7.4](https://github.com/PabloMK7/CTRPluginFramework-BlankTemplate/releases/tag/v0.7.4) 为例，将插件更名为default.3gx放入/luma/plugins/下，确保Luma3DS菜单中的插件加载选项为开启状态，进入游戏即可使用select按键呼出（可更改热键）。
 
 ### 关于Luma3DS
 
