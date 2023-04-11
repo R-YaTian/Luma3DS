@@ -165,6 +165,7 @@ typedef struct CfwInfo
 extern CfwInfo cfwInfo;
 extern u32 kextBasePa;
 extern u32 stolenSystemMemRegionSize;
+extern bool disableThreadRedirection;
 
 extern vu32 rosalinaState;
 extern bool hasStartedRosalinaNetworkFuncsOnce;
@@ -174,9 +175,9 @@ typedef enum
 {
     PLG_CFG_NONE = 0,
     PLG_CFG_RUNNING = 1,
-    PLG_CFG_SWAPPED = 2,
+    PLG_CFG_INHOME = 2,
 
-    PLG_CFG_SWAP_EVENT = 1 << 16,
+    PLG_CFG_HOME_EVENT = 1 << 16,
     PLG_CFG_EXIT_EVENT = 2 << 16
 }   PLG_CFG_STATUS;
 
