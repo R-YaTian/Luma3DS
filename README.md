@@ -38,7 +38,7 @@
 
 > 精简字库版采用国家通用汉字标准（8105个汉字），包含11470个字符，支持英文、简体中文与常用符号显示，满足基本使用需求，且内存占用低，支持老三系列设备，推荐使用该版本！
 > 完整字库版为unicode全量字库，包含65535个字符，支持英文、简体中文、繁体中文、韩文、日文、泰文、俄文、等大多数国家的文字与符号显示，但该版本占用内存较多。
-> V12.0版本由于增加了新功能，引入了一些其他标准库，导致编译文件体积增大，因内存有限，完整版字库暂时不能支持了，目前仅支持精简字库版本。
+> 由于V12.0以上版本增加了新功能，引入了一些其他标准库，导致编译文件体积增大，因内存有限，完整版字库暂时不能支持了，目前仅支持精简字库版本。
 
 #### 3. 为何选用带插件加载器的版本进行汉化？
 
@@ -56,7 +56,7 @@
 
 #### 6.如何使用插件加载功能？
 
-> 以[ActionReplay v0.7.4](https://github.com/PabloMK7/CTRPluginFramework-BlankTemplate/releases/tag/v0.7.4) 为例，将插件更名为default.3gx放入/luma/plugins/下，确保Luma3DS菜单中的插件加载选项为开启状态，进入游戏即可使用select按键呼出（可更改热键）。
+> 以[ActionReplay v0.7.4](https://github.com/PabloMK7/CTRPluginFramework-BlankTemplate/releases/tag/v0.7.4) 为例，将插件更名为default.3gx放入sd:/luma/plugins/default.3gx下或改为任意名称放入sd:/luma/plugins/<TITLEID>/<filename>.3gx下（非全局，指定TITLE ID使用插件），确保Luma3DS菜单中的插件加载选项为开启状态，进入游戏即可使用select按键呼出（可更改热键）。
 
 ### 关于Luma3DS
 
