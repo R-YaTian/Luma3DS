@@ -52,27 +52,71 @@ static bool switchToMainDir(bool isSd)
         case FR_OK:
             return true;
         case FR_NO_PATH:
-            return f_mkdir(mainDir) == FR_OK && switchToMainDir(isSd);
+        {
+            if (f_mkdir(mainDir) != FR_OK)
+            {
+                error("Failed to create luma directory.");
+                return false;
+            }
+            return switchToMainDir(isSd);
+        }
         default:
             return false;
     }
 }
 
-bool mountFs(bool isSd, bool switchToCtrNand)
+bool mountSdCardPartition(bool switchMainDir)
 {
-    static bool sdInitialized = false, nandInitialized = false;
-    if (isSd)
+    static bool sdInitialized = false;
+    if (!sdInitialized)
+        sdInitialized = f_mount(&sdFs, "sdmc:", 1) == FR_OK;
+
+    if (sdInitialized && switchMainDir)
+        return f_chdrive("sdmc:") == FR_OK && switchToMainDir(true);
+    return sdInitialized;
+}
+
+bool remountCtrNandPartition(bool switchMainDir)
+{
+    static bool nandInitialized = false;
+    int res = FR_OK;
+
+#if 0
+    Unfortunately the sdmmc driver is really flaky and returns TMIO_STAT_CMD_RESPEND as error.
+    (after timing out)
+    TODO: fix all this tech debt... one day, maybe?
+
+    if (nandInitialized)
     {
-        if (!sdInitialized)
-            sdInitialized = f_mount(&sdFs, "sdmc:", 1) == FR_OK;
-        return sdInitialized && switchToMainDir(true);
+        res = f_unmount("nand:");
+        if (res != FR_OK)
+        {
+            error("f_unmount returned %d", res);
+            return false;
+        }
+        nandInitialized = false;
     }
-    else
+#endif
+
+    if (!nandInitialized)
     {
-        if (!nandInitialized)
-            nandInitialized = f_mount(&nandFs, "nand:", 1) == FR_OK;
-        return nandInitialized && (!switchToCtrNand || (f_chdrive("nand:") == FR_OK && switchToMainDir(false)));
+        res = f_mount(&nandFs, "nand:", 1);
+        nandInitialized = res == FR_OK;
+        if (res != FR_OK)
+        {
+            error("f_mount returned %d", res);
+        }
     }
+
+    if (nandInitialized && switchMainDir)
+        return f_chdrive("nand:") == FR_OK && switchToMainDir(false);
+    return nandInitialized;
+}
+
+void unmountPartitions(void)
+{
+    f_unmount("nand:");
+    f_unmount("sdmc:");
 }
 
 u32 fileRead(void *dest, const char *path, u32 maxSize)
@@ -412,8 +456,7 @@ static bool backupEssentialFiles(void)
 {
     size_t sz = sizeof(fileCopyBuffer);
 
-    bool ok = !(isSdMode && !mountFs(false, false));
-
+    bool ok = true;
     ok = ok && fileCopy("nand:/ro/sys/HWCAL0.dat", "backups/HWCAL0.dat", false, fileCopyBuffer, sz);
     ok = ok && fileCopy("nand:/ro/sys/HWCAL1.dat", "backups/HWCAL1.dat", false, fileCopyBuffer, sz);
 
@@ -454,10 +497,30 @@ static bool backupEssentialFiles(void)
 
 bool doLumaUpgradeProcess(void)
 {
+    FirmwareSource oldCtrNandLocation = ctrNandLocation;
+    bool ok = true, ok2 = true, ok3 = true;
+
+#if 0
+    Unfortunately the sdmmc driver is really flaky and returns TMIO_STAT_CMD_RESPEND as error.
+    (after timing out)
+    TODO: fix all this tech debt... one day, maybe?
+
+    // Ensure SysNAND CTRNAND is mounted
+    if (isSdMode)
+    {
+        ctrNandLocation = FIRMWARE_SYSNAND;
+        if (!remountCtrNandPartition(false))
+        {
+            error("failed to mount");
+            ctrNandLocation = oldCtrNandLocation;
+            return false;
+        }
+    }
+#else
+    (void)oldCtrNandLocation;
     // Ensure CTRNAND is mounted
-    bool ok = mountFs(false, false), ok2 = true;
-    if (!ok)
-        return false;
+    remountCtrNandPartition(false);
+#endif
 
     // Try to boot.firm to CTRNAND, when applicable
     if (isSdMode && memcmp(launchedPathForFatfs, "sdmc:", 5) == 0)
@@ -470,5 +533,17 @@ bool doLumaUpgradeProcess(void)
     fileDelete("sdmc:/luma/config.bin");
     fileDelete("nand:/rw/luma/config.bin");
 
-    return ok && ok2;
+#if 0
+    if (isSdMode)
+    {
+        ctrNandLocation = oldCtrNandLocation;
+        ok3 = remountCtrNandPartition(false);
+        if (!ok3)
+            error("failed to unmount");
+    }
+#else
+    (void)ok3;
+#endif
+
+    return ok && ok2 && ok3;
 }

@@ -59,12 +59,13 @@ static_assert(sizeof(CfgDataMcu) > 0, "wrong data size");
 
 static const char *singleOptionIniNamesBoot[] = {
     "autoboot_emunand",
-    "use_emunand_firm_if_r_pressed",
     "enable_external_firm_and_modules",
     "enable_game_patching",
     "app_syscore_threads_on_core_2",
     "show_system_settings_string",
     "show_gba_boot_screen",
+    "enable_dsi_external_filter",
+    "allow_updown_leftright_dsi",
 };
 
 static const char *singleOptionIniNamesMisc[] = {
@@ -647,10 +648,10 @@ static size_t saveLumaIniConfigToStr(char *out)
         lumaVerStr, lumaRevSuffixStr,
 
         (int)CONFIG_VERSIONMAJOR, (int)CONFIG_VERSIONMINOR,
-        (int)CONFIG(AUTOBOOTEMU), (int)CONFIG(USEEMUFIRM),
-        (int)CONFIG(LOADEXTFIRMSANDMODULES), (int)CONFIG(PATCHGAMES),
-        (int)CONFIG(REDIRECTAPPTHREADS), (int)CONFIG(PATCHVERSTRING),
-        (int)CONFIG(SHOWGBABOOT),
+        (int)CONFIG(AUTOBOOTEMU), (int)CONFIG(LOADEXTFIRMSANDMODULES),
+        (int)CONFIG(PATCHGAMES), (int)CONFIG(REDIRECTAPPTHREADS),
+        (int)CONFIG(PATCHVERSTRING), (int)CONFIG(SHOWGBABOOT),
+        (int)CONFIG(ENABLEDSIEXTFILTER), (int)CONFIG(ALLOWUPDOWNLEFTRIGHTDSI),
 
         1 + (int)MULTICONFIG(DEFAULTEMU), 4 - (int)MULTICONFIG(BRIGHTNESS),
         splashPosStr, (unsigned int)cfg->splashDurationMsec,
@@ -825,17 +826,22 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
                                              };
 
     static const char *singleOptionsText[] = { "( ) Autoboot EmuNAND",
-                                               "( ) Use EmuNAND FIRM if booting with R",
                                                "( ) Enable loading external FIRMs and modules",
                                                "( ) Enable game patching",
                                                "( ) Redirect app. syscore threads to core2",
                                                "( ) Show NAND or user string in System Settings",
                                                "( ) Show GBA boot screen in patched AGB_FIRM",
+                                               "( ) Enable custom upscaling filters for DSi",
+                                               "( ) Allow Left+Right / Up+Down combos for DSi",
+
+                                               // Should always be the last entry
+                                               "\nSave and exit"
                                              };
 
     static const char *optionsDescription[]  = { "Select the default EmuNAND.\n\n"
-                                                 "It will be booted when no\n"
-                                                 "directional pad buttons are pressed.",
+                                                 "It will be booted when no directional\n"
+                                                 "pad buttons are pressed (Up/Right/Down\n"
+                                                 "/Left equal EmuNANDs 1/2/3/4).",
 
                                                  "Select the screen brightness.",
 
@@ -881,17 +887,6 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
                                                  "(Up/Right/Down/Left equal EmuNANDs\n"
                                                  "1/2/3/4).",
 
-                                                 "If enabled, when holding R on boot\n"
-                                                 "SysNAND will be booted with an\n"
-                                                 "EmuNAND FIRM.\n\n"
-                                                 "Otherwise, an EmuNAND will be booted\n"
-                                                 "with the SysNAND FIRM.\n\n"
-                                                 "To use a different EmuNAND from the\n"
-                                                 "default, hold a directional pad button\n"
-                                                 "(Up/Right/Down/Left equal EmuNANDs\n"
-                                                 "1/2/3/4), also add A if you have\n"
-                                                 "a matching payload.",
-
                                                  "Enable loading external FIRMs and\n"
                                                  "system modules.\n\n"
                                                  "This isn't needed in most cases.\n\n"
@@ -915,27 +910,42 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
                                                  "by about 10%. Can break some games\n"
                                                  "and other applications.\n",
 
-                                                 "Enable showing the current NAND/FIRM:\n\n"
+                                                 "Enable showing the current NAND:\n\n"
                                                  "\t* Sys  = SysNAND\n"
                                                  "\t* Emu  = EmuNAND 1\n"
-                                                 "\t* EmuX = EmuNAND X\n"
-                                                 "\t* SysE = SysNAND with EmuNAND 1 FIRM\n"
-                                                 "\t* SyEX = SysNAND with EmuNAND X FIRM\n"
-                                                 "\t* EmuS = EmuNAND 1 with SysNAND FIRM\n"
-                                                 "\t* EmXS = EmuNAND X with SysNAND FIRM\n\n"
+                                                 "\t* EmuX = EmuNAND X\n\n"
                                                  "or a user-defined custom string in\n"
                                                  "System Settings.\n\n"
                                                  "Refer to the wiki for instructions.",
 
                                                  "Enable showing the GBA boot screen\n"
                                                  "when booting GBA games.",
+
+                                                 "Enable replacing the default upscaling\n"
+                                                 "filter used for DS(i) software by the\n"
+                                                 "contents of:\n\n"
+                                                 "/luma/twl_upscaling_filter.bin\n\n"
+                                                 "Refer to the wiki for further details.",
+
+                                                 "Allow Left+Right and Up+Down button\n"
+                                                 "combos (using DPAD and CPAD\n"
+                                                 "simultaneously) in DS(i) software.\n\n"
+                                                 "Commercial software filter these\n"
+                                                 "combos on their own too, though.",
+                                                
+                                                 // Should always be the last entry
+                                                 "Save the changes and exit. To discard\n"
+                                                 "any changes press the POWER button.\n"
+                                                 "Use START as a shortcut to this entry."
                                                };
 
     FirmwareSource nandType = FIRMWARE_SYSNAND;
     if(isSdMode)
     {
+        // Check if there is at least one emuNAND
+        u32 emuIndex = 0;
         nandType = FIRMWARE_EMUNAND;
-        locateEmuNand(&nandType);
+        locateEmuNand(&nandType, &emuIndex, false);
     }
 
     struct multiOption {
@@ -959,10 +969,12 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
         bool visible;
     } singleOptions[] = {
         { .visible = nandType == FIRMWARE_EMUNAND },
-        { .visible = nandType == FIRMWARE_EMUNAND },
         { .visible = true },
         { .visible = true },
         { .visible = ISN3DS },
+        { .visible = true },
+        { .visible = true },
+        { .visible = true },
         { .visible = true },
         { .visible = true },
     };
@@ -997,7 +1009,7 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
                                        "FIRM1" };
 
     drawString(true, 10, 10, COLOR_TITLE, CONFIG_TITLE);
-    drawString(true, 10, 10 + SPACING_Y, COLOR_TITLE, "Press A to select, START to save");
+    drawString(true, 10, 10 + SPACING_Y, COLOR_TITLE, "Use the DPAD and A to change settings");
     drawFormattedString(false, 10, SCREEN_HEIGHT - 2 * SPACING_Y, COLOR_YELLOW, "Booted from %s via %s", isSdMode ? "SD" : "CTRNAND", bootTypes[(u32)bootType]);
 
     //Character to display a selected option
@@ -1024,7 +1036,7 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
 
         singleOptions[i].posY = endPos + SPACING_Y;
         endPos = drawString(true, 10, singleOptions[i].posY, color, singleOptionsText[i]);
-        if(singleOptions[i].enabled) drawCharacter(true, 10 + SPACING_X, singleOptions[i].posY, color, selected);
+        if(singleOptions[i].enabled && singleOptionsText[i][0] == '(') drawCharacter(true, 10 + SPACING_X, singleOptions[i].posY, color, selected);
 
         if(color == COLOR_RED)
         {
@@ -1035,18 +1047,25 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
     }
 
     drawString(false, 10, 10, COLOR_WHITE, optionsDescription[selectedOption]);
-
+    
+    bool startPressed = false;
     //Boring configuration menu
     while(true)
     {
-        u32 pressed;
+        u32 pressed = 0;
+        if (!startPressed) 
         do
         {
             pressed = waitInput(true) & MENU_BUTTONS;
         }
         while(!pressed);
 
-        if(pressed & BUTTON_START) break;
+        // Force the selection of "save and exit" and trigger it.
+        if(pressed & BUTTON_START) 
+        {
+            startPressed = true;
+            pressed |= (BUTTON_RIGHT);
+        }
 
         if(pressed & DPAD_BUTTONS)
         {
@@ -1093,7 +1112,7 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
                 }
             }
 
-            if(selectedOption == oldSelectedOption) continue;
+            if(selectedOption == oldSelectedOption && !startPressed) continue;
 
             //The user moved to a different option, print the old option in white and the new one in red. Only print 'x's if necessary
             if(oldSelectedOption < multiOptionsAmount)
@@ -1114,7 +1133,7 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
             drawString(false, 10, 10, COLOR_BLACK, optionsDescription[oldSelectedOption]);
             drawString(false, 10, 10, COLOR_WHITE, optionsDescription[selectedOption]);
         }
-        else if (pressed & BUTTON_A)
+        else if (pressed & BUTTON_A || startPressed)
         {
             //The selected option's status changed, print the 'x's accordingly
             if(isMultiOption)
@@ -1127,15 +1146,25 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
             }
             else
             {
-                bool oldEnabled = singleOptions[singleSelected].enabled;
-                singleOptions[singleSelected].enabled = !oldEnabled;
-                if(oldEnabled) drawCharacter(true, 10 + SPACING_X, singleOptions[singleSelected].posY, COLOR_BLACK, selected);
+                // Save and exit was selected.
+                if (singleSelected == singleOptionsAmount - 1)
+                {
+                    drawString(true, 10, singleOptions[singleSelected].posY, COLOR_GREEN, singleOptionsText[singleSelected]);
+                    startPressed = false;
+                    break;
+                }
+                else
+                {
+                    bool oldEnabled = singleOptions[singleSelected].enabled;
+                    singleOptions[singleSelected].enabled = !oldEnabled;
+                    if(oldEnabled) drawCharacter(true, 10 + SPACING_X, singleOptions[singleSelected].posY, COLOR_BLACK, selected);
+                }
             }
         }
 
         //In any case, if the current option is enabled (or a multiple choice option is selected) we must display a red 'x'
         if(isMultiOption) drawCharacter(true, 10 + multiOptions[selectedOption].posXs[multiOptions[selectedOption].enabled] * SPACING_X, multiOptions[selectedOption].posY, COLOR_RED, selected);
-        else if(singleOptions[singleSelected].enabled) drawCharacter(true, 10 + SPACING_X, singleOptions[singleSelected].posY, COLOR_RED, selected);
+        else if(singleOptions[singleSelected].enabled && singleOptionsText[singleSelected][0] == '(') drawCharacter(true, 10 + SPACING_X, singleOptions[singleSelected].posY, COLOR_RED, selected);
     }
 
     //Parse and write the new configuration
