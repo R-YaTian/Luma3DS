@@ -17,7 +17,7 @@ export HBLDR_DEFAULT_3DSX_TITLE_NAME ?= "hblauncher_loader"
 
 NAME		:=	$(notdir $(CURDIR))
 REVISION	:=	$(shell git describe --tags --match v[0-9]* --abbrev=8 | sed 's/-[0-9]*-g/-/')
-FTP_HOST 	:=	"192.168.1.175"
+FTP_HOST 	:=	"192.168.1.139"
 FTP_PORT	:=	"5000"
 
 export ONLY_CN_FONTLIB	:=	1

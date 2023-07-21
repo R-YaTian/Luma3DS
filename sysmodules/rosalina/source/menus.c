@@ -205,8 +205,8 @@ void RosalinaMenu_AboutCnVer(void)
         Draw_Lock();
         Draw_DrawString(16, 16, COLOR_TITLE, "关于中文版");
 
-        u32 posY = Draw_DrawString(16, 48, COLOR_WHITE, "  Luma3DS中文版基于目前最新的v12.0.1\n版本优化（插件加载器 By Nanquitas.）\n加入了中文字库并可支持中文金手指。");
-        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "  感谢开源社区为此默默贡献的开发者们\n，目前该项目已经开源在我的Github上（\nhttps://github.com/CynricXu） ，欢迎\n一起优化！免费开源，禁止商业用途！  \n                            Cynric  \n                          2023/04/15");
+        u32 posY = Draw_DrawString(16, 48, COLOR_WHITE, "  Luma3DS中文版基于官方最新的v13.0.1\n版本，加入中文字库，优化菜单显示，并\n可支持中文金手指及金手指快捷键提示。");
+        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "  感谢开源社区为此默默贡献的开发者们\n，目前该项目已经开源在我的Github上（\nhttps://github.com/CynricXu） ，欢迎\n一起优化！免费开源，禁止商业用途！  \n                            Cynric  \n                          2023/07/22");
         Draw_FlushFramebuffer();
         Draw_Unlock();
     }
