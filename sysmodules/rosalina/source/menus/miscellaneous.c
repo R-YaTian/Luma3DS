@@ -105,7 +105,7 @@ void MiscellaneousMenu_SwitchBoot3dsxTargetTitle(void)
         else
         {
             res = -1;
-            strcpy(failureReason, "没有找到可用的线程。");
+            strcpy(failureReason, "没有找到可用的应用。");
         }
     }
     else
