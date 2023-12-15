@@ -44,23 +44,24 @@
 #include "luma_config.h"
 
 Menu rosalinaMenu = {
-    "Rosalina menu",
+    "Rosalina 菜单",
     {
-        { "Take screenshot", METHOD, .method = &RosalinaMenu_TakeScreenshot },
-        { "Change screen brightness", METHOD, .method = &RosalinaMenu_ChangeScreenBrightness },
-        { "Cheats...", METHOD, .method = &RosalinaMenu_Cheats },
+        { "屏幕截取", METHOD, .method = &RosalinaMenu_TakeScreenshot },
+        { "背光亮度调节", METHOD, .method = &RosalinaMenu_ChangeScreenBrightness },
+        { "金手指", METHOD, .method = &RosalinaMenu_Cheats },
         { "", METHOD, .method = PluginLoader__MenuCallback},
-        { "Process list", METHOD, .method = &RosalinaMenu_ProcessList },
-        { "Debugger options...", MENU, .menu = &debuggerMenu },
-        { "System configuration...", MENU, .menu = &sysconfigMenu },
-        { "Screen filters...", MENU, .menu = &screenFiltersMenu },
-        { "New 3DS menu...", MENU, .menu = &N3DSMenu, .visibility = &menuCheckN3ds },
-        { "Miscellaneous options...", MENU, .menu = &miscellaneousMenu },
-        { "Save settings", METHOD, .method = &RosalinaMenu_SaveSettings },
-        { "Power off", METHOD, .method = &RosalinaMenu_PowerOff },
-        { "Reboot", METHOD, .method = &RosalinaMenu_Reboot },
-        { "Credits", METHOD, .method = &RosalinaMenu_ShowCredits },
-        { "Debug info", METHOD, .method = &RosalinaMenu_ShowDebugInfo, .visibility = &rosalinaMenuShouldShowDebugInfo },
+        { "进程列表", METHOD, .method = &RosalinaMenu_ProcessList },
+        { "调试器选项", MENU, .menu = &debuggerMenu },
+        { "系统设置", MENU, .menu = &sysconfigMenu },
+        { "屏幕色温调节", MENU, .menu = &screenFiltersMenu },
+        { "New3DS菜单", MENU, .menu = &N3DSMenu, .visibility = &menuCheckN3ds },
+        { "其他选项", MENU, .menu = &miscellaneousMenu },
+        { "保存设置", METHOD, .method = &RosalinaMenu_SaveSettings },
+        { "关机", METHOD, .method = &RosalinaMenu_PowerOff },
+        { "重启", METHOD, .method = &RosalinaMenu_Reboot },
+        { "官方致谢", METHOD, .method = &RosalinaMenu_ShowCredits },
+        { "调试信息", METHOD, .method = &RosalinaMenu_ShowDebugInfo, .visibility = &rosalinaMenuShouldShowDebugInfo },
+        { "关于中文版", METHOD, .method = &RosalinaMenu_AboutCnVer },
         {},
     }
 };
@@ -85,11 +86,11 @@ void RosalinaMenu_SaveSettings(void)
     do
     {
         Draw_Lock();
-        Draw_DrawString(10, 10, COLOR_TITLE, "Save settings");
+        Draw_DrawString(10, 10, COLOR_TITLE, "保存设置");
         if(R_SUCCEEDED(res))
-            Draw_DrawString(10, 30, COLOR_WHITE, "Operation succeeded.");
+            Draw_DrawString(10, 30, COLOR_WHITE, "操作成功。");
         else
-            Draw_DrawFormattedString(10, 30, COLOR_WHITE, "Operation failed (0x%08lx).", res);
+            Draw_DrawFormattedString(10, 30, COLOR_WHITE, "操作失败 (0x%08lx)。", res);
         Draw_FlushFramebuffer();
         Draw_Unlock();
     }
@@ -117,17 +118,17 @@ void RosalinaMenu_ShowDebugInfo(void)
     do
     {
         Draw_Lock();
-        Draw_DrawString(10, 10, COLOR_TITLE, "Rosalina -- Debug info");
+        Draw_DrawString(10, 10, COLOR_TITLE, "Rosalina -- 调试信息");
 
-        u32 posY = Draw_DrawString(10, 30, COLOR_WHITE, memoryMap);
-        posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "Kernel ext PA: %08lx - %08lx\n\n", kextPa, kextPa + kextSize);
-        posY = Draw_DrawFormattedString(
+        u32 posY = Draw_DrawString_Littlefont(10, 30, COLOR_WHITE, memoryMap);
+        posY = Draw_DrawFormattedString_Littlefont(10, posY, COLOR_WHITE, "Kernel ext PA: %08lx - %08lx\n\n", kextPa, kextPa + kextSize);
+        posY = Draw_DrawFormattedString_Littlefont(
             10, posY, COLOR_WHITE, "Kernel version: %lu.%lu-%lu\n",
             GET_VERSION_MAJOR(kernelVer), GET_VERSION_MINOR(kernelVer), GET_VERSION_REVISION(kernelVer)
         );
         if (mcuFwVersion != 0)
         {
-            posY = Draw_DrawFormattedString(
+            posY = Draw_DrawFormattedString_Littlefont(
                 10, posY, COLOR_WHITE, "MCU FW version: %lu.%lu\n",
                 GET_VERSION_MAJOR(mcuFwVersion), GET_VERSION_MINOR(mcuFwVersion)
             );
@@ -136,7 +137,7 @@ void RosalinaMenu_ShowDebugInfo(void)
         if (R_SUCCEEDED(FSUSER_GetSdmcSpeedInfo(&speedInfo)))
         {
             u32 clkDiv = 1 << (1 + (speedInfo.sdClkCtrl & 0xFF));
-            posY = Draw_DrawFormattedString(
+            posY = Draw_DrawFormattedString_Littlefont(
                 10, posY, COLOR_WHITE, "SDMC speed: HS=%d %lukHz\n",
                 (int)speedInfo.highSpeedModeEnabled, SYSCLOCK_SDMMC / (1000 * clkDiv)
             );
@@ -144,7 +145,7 @@ void RosalinaMenu_ShowDebugInfo(void)
         if (R_SUCCEEDED(FSUSER_GetNandSpeedInfo(&speedInfo)))
         {
             u32 clkDiv = 1 << (1 + (speedInfo.sdClkCtrl & 0xFF));
-            posY = Draw_DrawFormattedString(
+            posY = Draw_DrawFormattedString_Littlefont(
                 10, posY, COLOR_WHITE, "NAND speed: HS=%d %lukHz\n",
                 (int)speedInfo.highSpeedModeEnabled, SYSCLOCK_SDMMC / (1000 * clkDiv)
             );
@@ -171,24 +172,41 @@ void RosalinaMenu_ShowCredits(void)
     do
     {
         Draw_Lock();
-        Draw_DrawString(10, 10, COLOR_TITLE, "Rosalina -- Luma3DS credits");
+        Draw_DrawString(16, 16, COLOR_TITLE, "Rosalina -- Luma3DS 官方致谢");
 
-        u32 posY = Draw_DrawString(10, 30, COLOR_WHITE, "Luma3DS (c) 2016-2023 AuroraWright, TuxSH") + SPACING_Y;
+        u32 posY = Draw_DrawString(16, 40, COLOR_WHITE, "Luma3DS (c) 2016-2023\nAuroraWright, TuxSH") + 8;
 
-        posY = Draw_DrawString(10, posY + SPACING_Y, COLOR_WHITE, "3DSX loading code by fincs");
-        posY = Draw_DrawString(10, posY + SPACING_Y, COLOR_WHITE, "Networking code & basic GDB functionality by Stary");
-        posY = Draw_DrawString(10, posY + SPACING_Y, COLOR_WHITE, "InputRedirection by Stary (PoC by ShinyQuagsire)");
+        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "3DSX 加载部分 —— fincs");
+        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "网络与GDB调试部分 —— Stary");
+        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "输入重定向 —— Stary & ShinyQuagsir");
 
         posY += 2 * SPACING_Y;
 
-        Draw_DrawString(10, posY, COLOR_WHITE,
+        Draw_DrawString(16, posY, COLOR_WHITE,
             (
-                "Special thanks to:\n"
-                "  fincs, WinterMute, mtheall, piepie62,\n"
-                "  Luma3DS contributors, libctru contributors,\n"
-                "  other people"
+                "特别感谢：\n  fincs,WinterMute,mtheall,piepie62\n  Luma3DS贡献者,libctru贡献者\n  和其他为Luma3DS默默付出的开发者们！"
             ));
 
+        Draw_FlushFramebuffer();
+        Draw_Unlock();
+    }
+    while(!(waitInput() & KEY_B) && !menuShouldExit);
+}
+
+void RosalinaMenu_AboutCnVer(void)
+{
+    Draw_Lock();
+    Draw_ClearFramebuffer();
+    Draw_FlushFramebuffer();
+    Draw_Unlock();
+
+    do
+    {
+        Draw_Lock();
+        Draw_DrawString(16, 16, COLOR_TITLE, "关于中文版");
+
+        u32 posY = Draw_DrawString(16, 48, COLOR_WHITE, "  Luma3DS中文版基于官方最新的v13.0.2\n版本，加入中文字库，优化菜单显示，并\n支持中文金手指及金手指快捷键提示。");
+        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "  感谢开源社区为此默默贡献的开发者们\n该中文化项目同样开源在Github上\n(https://github.com/R-YaTian/Luma3DS)\n本版本开源免费，禁止商业用途！\n                  Cynric & R-YaTian\n                          2023/12/15");
         Draw_FlushFramebuffer();
         Draw_Unlock();
     }
@@ -205,8 +223,8 @@ void RosalinaMenu_Reboot(void)
     do
     {
         Draw_Lock();
-        Draw_DrawString(10, 10, COLOR_TITLE, "Reboot");
-        Draw_DrawString(10, 30, COLOR_WHITE, "Press A to reboot, press B to go back.");
+        Draw_DrawString(16, 16, COLOR_TITLE, "重启");
+        Draw_DrawString(16, 48, COLOR_WHITE, "按A确定，按B返回。");
         Draw_FlushFramebuffer();
         Draw_Unlock();
 
@@ -239,23 +257,23 @@ void RosalinaMenu_ChangeScreenBrightness(void)
     do
     {
         Draw_Lock();
-        Draw_DrawString(10, 10, COLOR_TITLE, "Screen brightness");
-        u32 posY = 30;
+        Draw_DrawString(16, 16, COLOR_TITLE, "背光亮度调节");
+        u32 posY = 48;
         posY = Draw_DrawFormattedString(
-            10,
+            16,
             posY,
             COLOR_WHITE,
-            "Current luminance: %lu (min. %lu, max. %lu)\n\n",
+            "当前亮度：%lu (最小： %lu, 最大： %lu)\n\n",
             luminance,
             minLum,
             maxLum
         );
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "Controls: Up/Down for +-1, Right/Left for +-10.\n");
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "Press A to start, B to exit.\n\n");
+        posY = Draw_DrawString(16, posY, COLOR_WHITE, "调节方式：上/下 +-1，左/右 +-10。\n");
+        posY = Draw_DrawString(16, posY + 4, COLOR_WHITE, "按A开始调节，按B返回。\n\n");
 
-        posY = Draw_DrawString(10, posY, COLOR_RED, "WARNING: \n");
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "  * value will be limited by the presets.\n");
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "  * bottom framebuffer will be restored until\nyou exit.");
+        posY = Draw_DrawString(16, posY, COLOR_RED, "警告：\n");
+        posY = Draw_DrawString(16, posY+4, COLOR_WHITE, "  * 亮度值将受预设限制。\n");
+        posY = Draw_DrawString(16, posY+4, COLOR_WHITE, "  * 屏幕亮度值将在你重启后还原。");
         Draw_FlushFramebuffer();
         Draw_Unlock();
 
@@ -332,8 +350,8 @@ void RosalinaMenu_PowerOff(void) // Soft shutdown.
     do
     {
         Draw_Lock();
-        Draw_DrawString(10, 10, COLOR_TITLE, "Power off");
-        Draw_DrawString(10, 30, COLOR_WHITE, "Press A to power off, press B to go back.");
+        Draw_DrawString(16, 16, COLOR_TITLE, "关机");
+        Draw_DrawString(16, 48, COLOR_WHITE, "按A确定，按B返回。");
         Draw_FlushFramebuffer();
         Draw_Unlock();
 
@@ -472,17 +490,17 @@ end:
     do
     {
         Draw_Lock();
-        Draw_DrawString(10, 10, COLOR_TITLE, "Screenshot");
+        Draw_DrawString(16, 16, COLOR_TITLE, "屏幕截取");
         if(R_FAILED(res))
-            Draw_DrawFormattedString(10, 30, COLOR_WHITE, "Operation failed (0x%08lx).", (u32)res);
+            Draw_DrawFormattedString(16, 48, COLOR_WHITE, "执行失败 (0x%08lx)。", (u32)res);
         else
         {
             u32 t1 = (u32)(1000 * timeSpentConvertingScreenshot / SYSCLOCK_ARM11);
             u32 t2 = (u32)(1000 * timeSpentWritingScreenshot / SYSCLOCK_ARM11);
-            u32 posY = 30;
-            posY = Draw_DrawString(10, posY, COLOR_WHITE, "Operation succeeded.\n\n");
-            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "Time spent converting:    %5lums\n", t1);
-            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "Time spent writing files: %5lums\n", t2);
+            u32 posY = 48;
+            posY = Draw_DrawString(16, posY, COLOR_WHITE, "执行成功，文件已保存。\n\n");
+            posY = Draw_DrawFormattedString(16, posY, COLOR_WHITE, "转换图片耗时：%18lu毫秒\n", t1);
+            posY = Draw_DrawFormattedString(16, posY + 4, COLOR_WHITE, "写入文件耗时：%18lu毫秒\n", t2);
         }
 
         Draw_FlushFramebuffer();

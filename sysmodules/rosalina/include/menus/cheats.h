@@ -30,7 +30,7 @@
 
 #include <3ds/types.h>
 
-#define CHEATS_PER_MENU_PAGE 18
+#define CHEATS_PER_MENU_PAGE 9
 
 void RosalinaMenu_Cheats(void);
 void Cheat_SeedRng(u64 seed);

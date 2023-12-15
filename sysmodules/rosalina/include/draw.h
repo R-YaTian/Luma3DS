@@ -70,8 +70,11 @@
 #define SCREEN_BOT_WIDTH  320
 #define SCREEN_BOT_HEIGHT 240
 
-#define SPACING_Y 11
-#define SPACING_X 6
+#define SPACING_Y 16
+#define SPACING_X 16
+
+#define SPACING_Y_LITTLE 11
+#define SPACING_X_LITTLE 6
 
 #define COLOR_TITLE RGB565(0x00, 0x26, 0x1F)
 #define COLOR_WHITE RGB565(0x1F, 0x3F, 0x1F)
@@ -82,16 +85,25 @@
 
 #define DRAW_MAX_FORMATTED_STRING_SIZE  512
 
+void ReadFont2Mem(void);
 void Draw_Init(void);
 
 void Draw_Lock(void);
 void Draw_Unlock(void);
 
-void Draw_DrawCharacter(u32 posX, u32 posY, u32 color, char character);
+void Draw_CheatHotKey(u32 posY,u32 color,u32 keycode);
+
+void Draw_DrawCharacter(u32 posX, u32 posY, u32 color, uint16_t character);
 u32 Draw_DrawString(u32 posX, u32 posY, u32 color, const char *string);
 
 __attribute__((format(printf,4,5)))
 u32 Draw_DrawFormattedString(u32 posX, u32 posY, u32 color, const char *fmt, ...);
+
+void Draw_DrawCharacter_Littlefont(u32 posX, u32 posY, u32 color, char character);
+u32 Draw_DrawString_Littlefont(u32 posX, u32 posY, u32 color, const char *string);
+
+__attribute__((format(printf,4,5)))
+u32 Draw_DrawFormattedString_Littlefont(u32 posX, u32 posY, u32 color, const char *fmt, ...);
 
 void Draw_FillFramebuffer(u32 value);
 void Draw_ClearFramebuffer(void);

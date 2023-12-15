@@ -38,6 +38,7 @@
 
 #define CORE_APPLICATION  0
 #define CORE_SYSTEM       1
+#define MAIN_PER_MENU_PAGE 8
 
 #define FLOAT_CONV_MULT 1e8 // for screen filters
 
@@ -62,7 +63,7 @@ typedef struct MenuItem {
 typedef struct Menu {
     const char *title;
 
-    MenuItem items[16];
+    MenuItem items[32];
 } Menu;
 
 extern u32 menuCombo;
@@ -84,6 +85,7 @@ u32 waitCombo(void);
 
 bool menuCheckN3ds(void);
 u32 menuCountItems(const Menu *menu);
+u32 numItemsWithoutHidden(const Menu *menu);
 
 MyThread *menuCreateThread(void);
 void    menuEnter(void);

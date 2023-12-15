@@ -40,7 +40,7 @@
 #define MAKE_IPV4(a,b,c,d)  ((a) << 24 | (b) << 16 | (c) << 8 | (d))
 
 #ifndef NTP_IP
-#define NTP_IP              MAKE_IPV4(51, 137, 137, 111) // time.windows.com
+#define NTP_IP              MAKE_IPV4(20, 189, 79, 72) // time.windows.com (HK Server)
 #endif
 
 // From https://github.com/lettier/ntpclient/blob/master/source/c/main.c

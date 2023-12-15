@@ -26,6 +26,7 @@
 
 #include <3ds.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include "fmt.h"
 #include "draw.h"
 #include "font.h"
@@ -33,13 +34,36 @@
 #include "menu.h"
 #include "utils.h"
 #include "csvc.h"
+#include "ifile.h"
 
 #define KERNPA2VA(a)            ((a) + (GET_VERSION_MINOR(osGetKernelVersion()) < 44 ? 0xD0000000 : 0xC0000000))
+#define GETBIT(x,y)             ((x) >> (y)&1)
 
 static u32 gpuSavedFramebufferAddr1, gpuSavedFramebufferAddr2, gpuSavedFramebufferFormat, gpuSavedFramebufferStride, gpuSavedFillColor;
 static u32 framebufferCacheSize;
 static void *framebufferCache;
 static RecursiveLock lock;
+
+static u8 fontbin[0x599C0];
+char *fontlibpath = "/luma/unifont_cn.bin";
+
+void ReadFont2Mem(){
+    IFile file;
+    u64 fileSize;
+    Result res;
+    s64 out;
+    bool isSdMode;
+    if(R_FAILED(svcGetSystemInfo(&out, 0x10000, 0x203))) svcBreak(USERBREAK_ASSERT);
+    isSdMode = (bool)out;
+    FS_ArchiveID archiveId = isSdMode ? ARCHIVE_SDMC : ARCHIVE_NAND_RW;
+    res = IFile_Open(&file, archiveId, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, fontlibpath), FS_OPEN_READ);
+    if(R_SUCCEEDED(res)){
+        IFile_GetSize(&file, &fileSize);
+        u64 total;
+        res = IFile_Read(&file, &total, fontbin, fileSize);
+    }
+    IFile_Close(&file);
+}
 
 void Draw_Init(void)
 {
@@ -56,7 +80,164 @@ void Draw_Unlock(void)
     RecursiveLock_Unlock(&lock);
 }
 
-void Draw_DrawCharacter(u32 posX, u32 posY, u32 color, char character)
+
+int NumberOfHotKey(u32 n)
+{
+    int count = 0;
+    for(int i = 0; i < 32; i++){
+        if(GETBIT(n,i) == 1){
+            count++;
+        }
+    }
+    return count;
+}
+
+
+void Draw_CheatHotKey(u32 posY,u32 color,u32 keycode){
+    u16 *const fb = (u16 *)FB_BOTTOM_VRAM_ADDR;
+    //11111111000100001100111111111111
+    uint16_t offset[] = {0,16,32,48,64,80,96,112,128,144,160,176,368,368,192,208,368,368,368,368,224,368,368,368,240,256,272,288,304,320,336,352};
+    s32 charWidth = 16;
+    int hkCount = NumberOfHotKey(keycode);
+    u32 posX = SCREEN_BOT_WIDTH - hkCount * 20 - 16;
+    u16 printarr[hkCount];
+    for(int i = 0,y = 0;i<32;i++){
+        if(GETBIT(keycode,i) == 1){
+            //if key is invalid
+            if(offset[i] == 368){
+                posX = SCREEN_BOT_WIDTH - 36;
+                s32 y;
+                for(y = 0; y < 16; y++)
+                {
+                    uint16_t charBit = keyfont[368 + y];
+                    for(s32 x = 16; x > 16 - charWidth; x--)
+                    {
+                        u32 screenPos = (posX * SCREEN_BOT_HEIGHT * 2 + (SCREEN_BOT_HEIGHT - y - posY - 1) * 2) + (15 - x) * 2 * SCREEN_BOT_HEIGHT;
+                        u32 pixelColor = ((charBit >> (x-1)) & 1) ? COLOR_RED : COLOR_BLACK;
+                        fb[screenPos / 2] = pixelColor;
+                    }
+                }
+                return;
+            }else{
+                printarr[y] = offset[i];
+                y++;
+            }
+        }
+    }
+    for(int i = hkCount; i > 0; i--){
+        u16 charPos = printarr[i-1];
+        s32 y;
+        for(y = 0; y < 16; y++)
+        {
+            uint16_t charBit = keyfont[charPos + y];
+            for(s32 x = 16; x > 16 - charWidth; x--)
+            {
+                u32 screenPos = (posX * SCREEN_BOT_HEIGHT * 2 + (SCREEN_BOT_HEIGHT - y - posY - 1) * 2) + (15 - x) * 2 * SCREEN_BOT_HEIGHT;
+                u32 pixelColor = ((charBit >> (x-1)) & 1) ? color : COLOR_BLACK;
+                fb[screenPos / 2] = pixelColor;
+            }
+        }
+        posX += 20;
+    }
+}
+
+void Draw_DrawCharacter(u32 posX, u32 posY, u32 color, uint16_t character)
+{
+    u16 *const fb = (u16 *)FB_BOTTOM_VRAM_ADDR;
+    uint32_t charPos = _font_offset[character];
+    s32 charWidth = _font_width[character];
+    s32 y;
+    for(y = 0; y < 16; y++)
+    {
+        uint16_t charBit = 0;
+        for (int i = 0; i < 2; i++) {
+            charBit += fontbin[(charPos + y) * 2 + i] << ((1-i) * 8);
+        }
+        s32 x;
+        for(x = 16; x > 16 - charWidth; x--)
+        {
+            u32 screenPos = (posX * SCREEN_BOT_HEIGHT * 2 + (SCREEN_BOT_HEIGHT - y - posY - 1) * 2) + (15 - x) * 2 * SCREEN_BOT_HEIGHT;
+            u32 pixelColor = ((charBit >> (x-1)) & 1) ? color : COLOR_BLACK;
+            fb[screenPos / 2] = pixelColor;
+        }
+    }
+}
+
+
+u32 Draw_DrawString(u32 posX, u32 posY, u32 color, const char *string)
+{
+    for(u32 i = 0, CutWidth = 0; i < strlen(string); i++)
+        switch(string[i])
+        {
+            case '\n':
+                posY += SPACING_Y + 4;
+                CutWidth = 0;
+                break;
+
+            case '\t':
+                CutWidth += SPACING_X * 2;
+                break;
+
+            default:
+                //Make sure we never get out of the screen
+                if(CutWidth >= (SCREEN_BOT_WIDTH - posX))
+                {
+                    posY += SPACING_Y;
+                    CutWidth = 0; //Little offset so we know the same string continues
+                    if(string[i] == ' ') break; //Spaces at the start look weird
+                }
+
+                uint16_t unicode = 0;
+                if((uint8_t)string[i] <= 0x7F){
+                    unicode = (uint16_t) string[i];
+                }else if((uint8_t)string[i] <= 0xDF){
+                    uint16_t firstByte = (uint8_t)string[i];
+                    uint16_t secondByte = (uint8_t)string[i + 1];
+                    if(secondByte >> 6 & 0x2){
+                        firstByte &= 0x1f;
+                        firstByte <<= 6;
+                        secondByte &= 0x3f;
+                        unicode = firstByte + secondByte;
+                        i += 1;
+                    }else{
+                        unicode = (uint16_t) string[i];
+                    }
+                }else{
+                    uint16_t firstByte = (uint8_t)string[i];
+                    uint16_t secondByte = (uint8_t)string[i + 1];
+                    uint16_t thirdByte = (uint8_t)string[i + 2];
+                    if(secondByte >> 6 & 0x2 && thirdByte >> 6 & 0x2){
+                        firstByte <<= 12;
+                        secondByte ^= 0x80;
+                        secondByte <<= 6;
+                        thirdByte ^= 0x80;
+                        unicode = firstByte + secondByte + thirdByte;
+                        i += 2;
+                    }else{
+                        unicode = (uint16_t) string[i];
+                    }
+                }
+
+                Draw_DrawCharacter(posX + CutWidth, posY, color, unicode);
+                CutWidth += _font_width[unicode];
+                break;
+        }
+
+    return posY;
+}
+
+u32 Draw_DrawFormattedString(u32 posX, u32 posY, u32 color, const char *fmt, ...)
+{
+    char buf[DRAW_MAX_FORMATTED_STRING_SIZE + 1];
+    va_list args;
+    va_start(args, fmt);
+    vsprintf(buf, fmt, args);
+    va_end(args);
+
+    return Draw_DrawString(posX, posY, color, buf);
+}
+
+void Draw_DrawCharacter_Littlefont(u32 posX, u32 posY, u32 color, char character)
 {
     u16 *const fb = (u16 *)FB_BOTTOM_VRAM_ADDR;
 
@@ -76,13 +257,13 @@ void Draw_DrawCharacter(u32 posX, u32 posY, u32 color, char character)
 }
 
 
-u32 Draw_DrawString(u32 posX, u32 posY, u32 color, const char *string)
+u32 Draw_DrawString_Littlefont(u32 posX, u32 posY, u32 color, const char *string)
 {
     for(u32 i = 0, line_i = 0; i < strlen(string); i++)
         switch(string[i])
         {
             case '\n':
-                posY += SPACING_Y;
+                posY += SPACING_Y_LITTLE;
                 line_i = 0;
                 break;
 
@@ -92,14 +273,14 @@ u32 Draw_DrawString(u32 posX, u32 posY, u32 color, const char *string)
 
             default:
                 //Make sure we never get out of the screen
-                if(line_i >= ((SCREEN_BOT_WIDTH) - posX) / SPACING_X)
+                if(line_i >= ((SCREEN_BOT_WIDTH) - posX) / SPACING_X_LITTLE)
                 {
-                    posY += SPACING_Y;
+                    posY += 11;
                     line_i = 1; //Little offset so we know the same string continues
                     if(string[i] == ' ') break; //Spaces at the start look weird
                 }
 
-                Draw_DrawCharacter(posX + line_i * SPACING_X, posY, color, string[i]);
+                Draw_DrawCharacter_Littlefont(posX + line_i * SPACING_X_LITTLE, posY, color, string[i]);
 
                 line_i++;
                 break;
@@ -108,7 +289,7 @@ u32 Draw_DrawString(u32 posX, u32 posY, u32 color, const char *string)
     return posY;
 }
 
-u32 Draw_DrawFormattedString(u32 posX, u32 posY, u32 color, const char *fmt, ...)
+u32 Draw_DrawFormattedString_Littlefont(u32 posX, u32 posY, u32 color, const char *fmt, ...)
 {
     char buf[DRAW_MAX_FORMATTED_STRING_SIZE + 1];
     va_list args;
@@ -116,7 +297,7 @@ u32 Draw_DrawFormattedString(u32 posX, u32 posY, u32 color, const char *fmt, ...
     vsprintf(buf, fmt, args);
     va_end(args);
 
-    return Draw_DrawString(posX, posY, color, buf);
+    return Draw_DrawString_Littlefont(posX, posY, color, buf);
 }
 
 void Draw_FillFramebuffer(u32 value)
@@ -203,7 +384,7 @@ u32 Draw_SetupFramebuffer(void)
     GPU_FB_BOTTOM_ADDR_1 = GPU_FB_BOTTOM_ADDR_2 = FB_BOTTOM_VRAM_PA;
     GPU_FB_BOTTOM_FMT = format;
     GPU_FB_BOTTOM_STRIDE = 240 * 2;
-    
+
     gpuSavedFillColor = LCD_BOT_FILLCOLOR;
     LCD_BOT_FILLCOLOR = 0;
 
@@ -214,7 +395,7 @@ void Draw_RestoreFramebuffer(void)
 {
     memcpy(FB_BOTTOM_VRAM_ADDR, framebufferCache, FB_BOTTOM_SIZE);
     Draw_FlushFramebuffer();
-    
+
     LCD_BOT_FILLCOLOR = gpuSavedFillColor;
     GPU_FB_BOTTOM_ADDR_1 = gpuSavedFramebufferAddr1;
     GPU_FB_BOTTOM_ADDR_2 = gpuSavedFramebufferAddr2;

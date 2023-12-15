@@ -66,8 +66,8 @@ void        PluginLoader__UpdateMenu(void)
 {
     static const char *status[2] =
     {
-        "Plugin Loader: [Disabled]",
-        "Plugin Loader: [Enabled]"
+        "插件加载: [禁用]",
+        "插件加载: [启用]"
     };
 
     rosalinaMenu.items[3].title = status[PluginLoaderCtx.isEnabled];
@@ -484,7 +484,7 @@ static void WaitForProcessTerminated(void *arg)
 
     // Wait until all threads of the process have finished (svcWaitSynchronization == 0) or 5 seconds have passed.
     for (u32 i = 0; svcWaitSynchronization(ctx->target, 0) != 0 && i < 100; i++) svcSleepThread(50000000); // 50ms
-    
+
     // Unmap plugin's memory before closing the process
     if (!ctx->pluginIsSwapped) {
         MemoryBlock__UnmountFromProcess();
@@ -584,12 +584,11 @@ void    PluginLoader__HandleKernelEvent(u32 notifId)
                     PLG__NotifyEvent(PLG_HOME_ENTER, false);
                     // Wait for plugin reply
                     PLG__WaitForReply();
-                }                
+                }
                 PLG__SetConfigMemoryStatus(PLG_CFG_INHOME);
             }
             ctx->pluginIsHome = !ctx->pluginIsHome;
         }
-        
     }
     srvPublishToSubscriber(0x1002, 0);
 }

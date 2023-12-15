@@ -107,8 +107,8 @@ void initSystem(void)
         svcBreak(USERBREAK_PANIC);
 
     miscellaneousMenu.items[0].title = Luma_SharedConfig->selected_hbldr_3dsx_tid == HBLDR_DEFAULT_3DSX_TID ?
-        "Switch the hb. title to the current app." :
-        "Switch the hb. title to " HBLDR_DEFAULT_3DSX_TITLE_NAME;
+        "将当前应用替换为homebrew" :
+        "将homebrew替换为" HBLDR_DEFAULT_3DSX_TITLE_NAME;
 
     // **** DO NOT init services that don't come from KIPs here ****
     // Instead, init the service only where it's actually init (then deinit it).
@@ -259,6 +259,7 @@ int main(void)
     if(R_FAILED(svcCreateEvent(&preTerminationEvent, RESET_STICKY)))
         svcBreak(USERBREAK_ASSERT);
 
+    //ReadFont2Mem();
     Draw_Init();
     Cheat_SeedRng(svcGetSystemTick());
     ScreenFiltersMenu_LoadConfig();
