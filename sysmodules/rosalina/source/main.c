@@ -259,7 +259,7 @@ int main(void)
     if(R_FAILED(svcCreateEvent(&preTerminationEvent, RESET_STICKY)))
         svcBreak(USERBREAK_ASSERT);
 
-    //ReadFont2Mem();
+    ReadFont2Mem();
     Draw_Init();
     Cheat_SeedRng(svcGetSystemTick());
     ScreenFiltersMenu_LoadConfig();
