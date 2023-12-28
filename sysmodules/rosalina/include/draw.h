@@ -93,7 +93,7 @@ void Draw_Unlock(void);
 
 void Draw_CheatHotKey(u32 posY,u32 color,u32 keycode);
 
-void Draw_DrawCharacter(u32 posX, u32 posY, u32 color, uint16_t character);
+uint8_t Draw_DrawCharacter(u32 posX, u32 posY, u32 color, uint16_t character);
 u32 Draw_DrawString(u32 posX, u32 posY, u32 color, const char *string);
 
 __attribute__((format(printf,4,5)))

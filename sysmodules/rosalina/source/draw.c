@@ -44,7 +44,7 @@ static u32 framebufferCacheSize;
 static void *framebufferCache;
 static RecursiveLock lock;
 
-static u8 fontbin[0x599C0];
+static u8 font_bin[0x40680];
 char *fontlibpath = "/luma/unifont_cn.bin";
 
 void ReadFont2Mem(){
@@ -60,7 +60,7 @@ void ReadFont2Mem(){
     if(R_SUCCEEDED(res)){
         IFile_GetSize(&file, &fileSize);
         u64 total;
-        res = IFile_Read(&file, &total, fontbin, fileSize);
+        res = IFile_Read(&file, &total, font_bin, fileSize);
     }
     IFile_Close(&file);
 }
@@ -141,17 +141,18 @@ void Draw_CheatHotKey(u32 posY,u32 color,u32 keycode){
     }
 }
 
-void Draw_DrawCharacter(u32 posX, u32 posY, u32 color, uint16_t character)
+uint8_t Draw_DrawCharacter(u32 posX, u32 posY, u32 color, uint16_t character)
 {
     u16 *const fb = (u16 *)FB_BOTTOM_VRAM_ADDR;
-    uint32_t charPos = _font_offset[character];
-    s32 charWidth = _font_width[character];
+    uint32_t charPos = GetFontOffset(character);
+    uint8_t pixelBlack = 0;
+    s32 charWidth = 16;
     s32 y;
     for(y = 0; y < 16; y++)
     {
         uint16_t charBit = 0;
         for (int i = 0; i < 2; i++) {
-            charBit += fontbin[(charPos + y) * 2 + i] << ((1-i) * 8);
+            charBit += font_bin[(charPos + y) * 2 + i] << ((1-i) * 8);
         }
         s32 x;
         for(x = 16; x > 16 - charWidth; x--)
@@ -159,8 +160,14 @@ void Draw_DrawCharacter(u32 posX, u32 posY, u32 color, uint16_t character)
             u32 screenPos = (posX * SCREEN_BOT_HEIGHT * 2 + (SCREEN_BOT_HEIGHT - y - posY - 1) * 2) + (15 - x) * 2 * SCREEN_BOT_HEIGHT;
             u32 pixelColor = ((charBit >> (x-1)) & 1) ? color : COLOR_BLACK;
             fb[screenPos / 2] = pixelColor;
+            if (x <= 8)
+            {
+                if (pixelColor == COLOR_BLACK)
+                    pixelBlack++;
+            }
         }
     }
+    return pixelBlack;
 }
 
 
@@ -218,8 +225,8 @@ u32 Draw_DrawString(u32 posX, u32 posY, u32 color, const char *string)
                     }
                 }
 
-                Draw_DrawCharacter(posX + CutWidth, posY, color, unicode);
-                CutWidth += _font_width[unicode];
+                uint8_t invalidPixel = Draw_DrawCharacter(posX + CutWidth, posY, color, unicode);
+                CutWidth += (invalidPixel == 128 ? 8 : 16);
                 break;
         }
 
