@@ -10,9 +10,11 @@
 #include "sleep.h"
 #include "task_runner.h"
 
-#define PLGLDR_VERSION (SYSTEM_VERSION(1, 0, 1))
+#define PLGLDR_VERSION (SYSTEM_VERSION(1, 0, 2))
 
 #define THREADVARS_MAGIC  0x21545624 // !TV$
+
+#define PERS_USER_FILE_MAGIC 0x53524550 // PERS
 
 static const char *g_title = "Plugin loader";
 PluginLoaderContext PluginLoaderCtx;
@@ -43,6 +45,24 @@ void        PluginLoader__Init(void)
     assertSuccess(svcCreateEvent(&ctx->kernelEvent, RESET_ONESHOT));
 
     svcKernelSetState(0x10007, ctx->kernelEvent, 0, 0);
+
+    IFile file;
+    if (R_SUCCEEDED(IFile_Open(&file, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, "/luma/plugins/user_param.bin"), FS_OPEN_READ)))
+    {
+        PluginLoadParameters *params = &ctx->userLoadParameters;
+        u64 temp_read;
+        u32 magic = 0;
+        if (R_SUCCEEDED(IFile_Read(&file, &temp_read, &magic, sizeof(magic))) && temp_read == sizeof(magic) && magic == PERS_USER_FILE_MAGIC
+            && R_SUCCEEDED(IFile_Read(&file, &temp_read, params, sizeof(PluginLoadParameters))) && temp_read == sizeof(PluginLoadParameters))
+        {
+            ctx->useUserLoadParameters = true;
+        }
+        else
+        {
+            memset(params, 0, sizeof(PluginLoadParameters));
+        }
+        IFile_Close(&file);
+    }
 }
 
 void    PluginLoader__Error(const char *message, Result res)
@@ -218,10 +238,24 @@ void     PluginLoader__HandleCommands(void *_ctx)
             ctx->useUserLoadParameters = true;
             params->noFlash = cmdbuf[1] & 0xFF;
             params->pluginMemoryStrategy = (cmdbuf[1] >> 8) & 0xFF;
+            params->persistent = (cmdbuf[1] >> 16) & 0x1;
             params->lowTitleId = cmdbuf[2];
             
             strncpy(params->path, (const char *)cmdbuf[4], 255);
             memcpy(params->config, (void *)cmdbuf[6], 32 * sizeof(u32));
+
+            if (params->persistent)
+            {
+                IFile file;
+                if (R_SUCCEEDED(IFile_Open(&file, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, "/luma/plugins/user_param.bin"), 
+                                           FS_OPEN_CREATE | FS_OPEN_READ | FS_OPEN_WRITE))) {
+                    u64 tempWritten;
+                    u32 magic = PERS_USER_FILE_MAGIC;
+                    IFile_Write(&file, &tempWritten, &magic, sizeof(magic), 0);
+                    IFile_Write(&file, &tempWritten, params, sizeof(PluginLoadParameters), 0);
+                    IFile_Close(&file);
+                }
+            }
 
             if (params->pluginMemoryStrategy == PLG_STRATEGY_MODE3)
                 cmdbuf[1] = PluginLoader__SetMode3AppMode(true);
@@ -417,6 +451,28 @@ void     PluginLoader__HandleCommands(void *_ctx)
             break;
         }
 
+        case 14: // Clear user load parameters
+        {
+            if (cmdbuf[0] != IPC_MakeHeader(14, 0, 0))
+            {
+                error(cmdbuf, 0xD9001830);
+                break;
+            }
+
+            ctx->useUserLoadParameters = false;
+            memset(&ctx->userLoadParameters, 0, sizeof(PluginLoadParameters));
+
+            FS_Archive sd;
+            if(R_SUCCEEDED(FSUSER_OpenArchive(&sd, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""))))
+            {
+                FSUSER_DeleteFile(sd, fsMakePath(PATH_ASCII, "/luma/plugins/user_param.bin"));
+                FSUSER_CloseArchive(sd);
+            }
+
+            cmdbuf[1] = 0;
+            break;
+        }
+
         default: // Unknown command
         {
             error(cmdbuf, 0xD900182F);
@@ -449,7 +505,7 @@ static void     __strex__(s32 *addr, s32 val)
 
 void    PLG__NotifyEvent(PLG_Event event, bool signal)
 {
-    if (!PluginLoaderCtx.plgEventPA) return;
+    if (PluginLoaderCtx.eventsSelfManaged || !PluginLoaderCtx.plgEventPA) return;
 
     __strex__(PluginLoaderCtx.plgEventPA, event);
     if (signal)
@@ -458,6 +514,7 @@ void    PLG__NotifyEvent(PLG_Event event, bool signal)
 
 void    PLG__WaitForReply(void)
 {
+    if (PluginLoaderCtx.eventsSelfManaged) return;
     __strex__(PluginLoaderCtx.plgReplyPA, PLG_WAIT);
     svcArbitrateAddress(PluginLoaderCtx.arbiter, (u32)PluginLoaderCtx.plgReplyPA, ARBITRATION_WAIT_IF_LESS_THAN_TIMEOUT, PLG_OK, 10000000000ULL);
 }
@@ -482,9 +539,9 @@ static void WaitForProcessTerminated(void *arg)
     (void)arg;
     PluginLoaderContext *ctx = &PluginLoaderCtx;
 
-    // Wait until all threads of the process have finished (svcWaitSynchronization == 0) or 5 seconds have passed.
-    for (u32 i = 0; svcWaitSynchronization(ctx->target, 0) != 0 && i < 100; i++) svcSleepThread(50000000); // 50ms
-
+    // Wait until all threads of the process have finished (svcWaitSynchronization == 0) or 2.5 seconds have passed.
+    for (u32 i = 0; svcWaitSynchronization(ctx->target, 0) != 0 && i < 50; i++) svcSleepThread(50000000); // 50ms
+    
     // Unmap plugin's memory before closing the process
     if (!ctx->pluginIsSwapped) {
         MemoryBlock__UnmountFromProcess();
@@ -500,6 +557,7 @@ static void WaitForProcessTerminated(void *arg)
     ctx->isExeLoadFunctionset = false;
     ctx->isSwapFunctionset = false;
     ctx->pluginMemoryStrategy = PLG_STRATEGY_SWAP;
+    ctx->eventsSelfManaged = false;
     g_blockMenuOpen = 0;
     MemoryBlock__ResetSwapSettings();
     //if (!ctx->userLoadParameters.noIRPatch)
@@ -584,11 +642,12 @@ void    PluginLoader__HandleKernelEvent(u32 notifId)
                     PLG__NotifyEvent(PLG_HOME_ENTER, false);
                     // Wait for plugin reply
                     PLG__WaitForReply();
-                }
+                }                
                 PLG__SetConfigMemoryStatus(PLG_CFG_INHOME);
             }
             ctx->pluginIsHome = !ctx->pluginIsHome;
         }
+        
     }
     srvPublishToSubscriber(0x1002, 0);
 }

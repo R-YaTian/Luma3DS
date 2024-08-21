@@ -59,6 +59,7 @@ Menu rosalinaMenu = {
         { "保存设置", METHOD, .method = &RosalinaMenu_SaveSettings },
         { "关机", METHOD, .method = &RosalinaMenu_PowerOff },
         { "重启", METHOD, .method = &RosalinaMenu_Reboot },
+		{ "系统信息", METHOD, .method = &RosalinaMenu_ShowSystemInfo },
         { "官方致谢", METHOD, .method = &RosalinaMenu_ShowCredits },
         { "调试信息", METHOD, .method = &RosalinaMenu_ShowDebugInfo, .visibility = &rosalinaMenuShouldShowDebugInfo },
         { "关于中文版", METHOD, .method = &RosalinaMenu_AboutCnVer },
@@ -88,9 +89,39 @@ void RosalinaMenu_SaveSettings(void)
         Draw_Lock();
         Draw_DrawString(10, 10, COLOR_TITLE, "保存设置");
         if(R_SUCCEEDED(res))
-            Draw_DrawString(10, 30, COLOR_WHITE, "操作成功。");
+            Draw_DrawString(10, 30, COLOR_WHITE, "执行成功。");
         else
-            Draw_DrawFormattedString(10, 30, COLOR_WHITE, "操作失败 (0x%08lx)。", res);
+            Draw_DrawFormattedString(10, 30, COLOR_WHITE, "执行失败 (0x%08lx)。", res);
+        Draw_FlushFramebuffer();
+        Draw_Unlock();
+    }
+    while(!(waitInput() & KEY_B) && !menuShouldExit);
+}
+
+void RosalinaMenu_ShowSystemInfo(void)
+{
+    u32 kver = osGetKernelVersion();
+
+    do
+    {
+        Draw_Lock();
+        Draw_DrawString(10, 10, COLOR_TITLE, "Rosalina -- 系统信息");
+
+        u32 posY = 30;
+
+        if (areScreenTypesInitialized)
+        {
+            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "上屏类型:     %s\n", topScreenType);
+            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "下屏类型:     %s\n\n", bottomScreenType);
+        }
+        posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "内核版本:     %lu.%lu-%lu\n\n", GET_VERSION_MAJOR(kver), GET_VERSION_MINOR(kver), GET_VERSION_REVISION(kver));
+        if (mcuFwVersion != 0 && mcuInfoTableRead)
+        {
+            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "MCU 固件版本: %lu.%lu\n", GET_VERSION_MAJOR(mcuFwVersion), GET_VERSION_MINOR(mcuFwVersion));
+            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "PMIC 供应商:  %hhu\n", mcuInfoTable[1]);
+            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "电池供应商:   %hhu\n\n", mcuInfoTable[2]);
+        }
+
         Draw_FlushFramebuffer();
         Draw_Unlock();
     }
@@ -112,7 +143,6 @@ void RosalinaMenu_ShowDebugInfo(void)
     u32 kextPa = (u32)((u64)kextAddrSize >> 32);
     u32 kextSize = (u32)kextAddrSize;
 
-    u32 kernelVer = osGetKernelVersion();
     FS_SdMmcSpeedInfo speedInfo;
 
     do
@@ -122,18 +152,6 @@ void RosalinaMenu_ShowDebugInfo(void)
 
         u32 posY = Draw_DrawString_Littlefont(10, 30, COLOR_WHITE, memoryMap);
         posY = Draw_DrawFormattedString_Littlefont(10, posY, COLOR_WHITE, "Kernel ext PA: %08lx - %08lx\n\n", kextPa, kextPa + kextSize);
-        posY = Draw_DrawFormattedString_Littlefont(
-            10, posY, COLOR_WHITE, "Kernel version: %lu.%lu-%lu\n",
-            GET_VERSION_MAJOR(kernelVer), GET_VERSION_MINOR(kernelVer), GET_VERSION_REVISION(kernelVer)
-        );
-        if (mcuFwVersion != 0)
-        {
-            posY = Draw_DrawFormattedString_Littlefont(
-                10, posY, COLOR_WHITE, "MCU FW version: %lu.%lu\n",
-                GET_VERSION_MAJOR(mcuFwVersion), GET_VERSION_MINOR(mcuFwVersion)
-            );
-        }
-
         if (R_SUCCEEDED(FSUSER_GetSdmcSpeedInfo(&speedInfo)))
         {
             u32 clkDiv = 1 << (1 + (speedInfo.sdClkCtrl & 0xFF));
@@ -174,10 +192,10 @@ void RosalinaMenu_ShowCredits(void)
         Draw_Lock();
         Draw_DrawString(16, 16, COLOR_TITLE, "Rosalina -- Luma3DS 官方致谢");
 
-        u32 posY = Draw_DrawString(16, 40, COLOR_WHITE, "Luma3DS (c) 2016-2023\nAuroraWright, TuxSH") + 8;
+        u32 posY = Draw_DrawString(16, 40, COLOR_WHITE, "Luma3DS (c) 2016-2024\nAuroraWright, TuxSH") + 8;
 
         posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "3DSX 加载部分 —— fincs");
-        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "网络与GDB调试部分 —— Stary");
+        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "网络与 GDB 调试部分 —— Stary");
         posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "输入重定向 —— Stary & ShinyQuagsir");
 
         posY += 2 * SPACING_Y;
@@ -205,8 +223,8 @@ void RosalinaMenu_AboutCnVer(void)
         Draw_Lock();
         Draw_DrawString(16, 16, COLOR_TITLE, "关于中文版");
 
-        u32 posY = Draw_DrawString(16, 48, COLOR_WHITE, "  Luma3DS中文版基于官方最新的v13.0.2\n版本，加入中文字库，优化菜单显示，并\n支持中文金手指及金手指快捷键提示。");
-        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "  感谢开源社区为此默默贡献的开发者们\n该中文化项目同样开源在Github上\n(https://github.com/R-YaTian/Luma3DS)\n本版本开源免费，禁止商业用途！\n                  Cynric & R-YaTian\n                          2023/12/15");
+        u32 posY = Draw_DrawString(16, 48, COLOR_WHITE, "  Luma3DS中文版基于官方最新的v13.1.2\n版本，加入中文字库，优化菜单显示，并\n支持中文金手指及金手指快捷键提示。");
+        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "  感谢开源社区为此默默贡献的开发者们\n该中文化项目同样开源在Github上\n(https://github.com/R-YaTian/Luma3DS)\n本版本开源免费，禁止商业用途！\n                  Cynric & R-YaTian\n                          2024/08/21");
         Draw_FlushFramebuffer();
         Draw_Unlock();
     }
@@ -380,7 +398,12 @@ static Result RosalinaMenu_WriteScreenshot(IFile *file, u32 width, bool top, boo
     u64 total;
     Result res = 0;
     u32 lineSize = 3 * width;
-    u32 remaining = lineSize * 240;
+
+    // When dealing with 800px mode (800x240 with half-width pixels), duplicate each line
+    // to restore aspect ratio and obtain faithful 800x480 screenshots
+    u32 scaleFactorY = width > 400 ? 2 : 1;
+    u32 numLinesScaled = 240 * scaleFactorY;
+    u32 remaining = lineSize * numLinesScaled;
 
     TRY(Draw_AllocateFramebufferCacheForScreenshot(remaining));
 
@@ -388,7 +411,7 @@ static Result RosalinaMenu_WriteScreenshot(IFile *file, u32 width, bool top, boo
     u8 *framebufferCacheEnd = framebufferCache + Draw_GetFramebufferCacheSize();
 
     u8 *buf = framebufferCache;
-    Draw_CreateBitmapHeader(framebufferCache, width, 240);
+    Draw_CreateBitmapHeader(framebufferCache, width, numLinesScaled);
     buf += 54;
 
     u32 y = 0;
@@ -398,16 +421,16 @@ static Result RosalinaMenu_WriteScreenshot(IFile *file, u32 width, bool top, boo
         s64 t0 = svcGetSystemTick();
         u32 available = (u32)(framebufferCacheEnd - buf);
         u32 size = available < remaining ? available : remaining;
-        u32 nlines = size / lineSize;
-        Draw_ConvertFrameBufferLines(buf, width, y, nlines, top, left);
+        u32 nlines = size / (lineSize * scaleFactorY);
+        Draw_ConvertFrameBufferLines(buf, width, y, nlines, scaleFactorY, top, left);
 
         s64 t1 = svcGetSystemTick();
         timeSpentConvertingScreenshot += t1 - t0;
-        TRY(IFile_Write(file, &total, framebufferCache, (y == 0 ? 54 : 0) + lineSize * nlines, 0)); // don't forget to write the header
+        TRY(IFile_Write(file, &total, framebufferCache, (y == 0 ? 54 : 0) + lineSize * nlines * scaleFactorY, 0)); // don't forget to write the header
         timeSpentWritingScreenshot += svcGetSystemTick() - t1;
 
         y += nlines;
-        remaining -= lineSize * nlines;
+        remaining -= lineSize * nlines * scaleFactorY;
         buf = framebufferCache;
     }
     end:

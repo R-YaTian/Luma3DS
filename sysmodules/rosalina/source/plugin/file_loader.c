@@ -168,9 +168,9 @@ bool     TryToLoadPlugin(Handle process)
     pluginHeader->magic = HeaderMagic;
 
     // Try to open plugin file
-    if (ctx->useUserLoadParameters && (u32)tid == ctx->userLoadParameters.lowTitleId)
+    if (ctx->useUserLoadParameters && (ctx->userLoadParameters.lowTitleId == 0 || (u32)tid == ctx->userLoadParameters.lowTitleId))
     {
-        ctx->useUserLoadParameters = false;
+        if (!ctx->userLoadParameters.persistent) ctx->useUserLoadParameters = false;
         ctx->pluginMemoryStrategy = ctx->userLoadParameters.pluginMemoryStrategy;
         if (OpenFile(&plugin, ctx->userLoadParameters.path))
             return false;
@@ -204,6 +204,19 @@ bool     TryToLoadPlugin(Handle process)
     // Read header
     if (!res && R_FAILED((res = Read_3gx_Header(&plugin, &fileHeader))))
         ctx->error.message = "Couldn't read file";
+
+    // Check compatibility
+    if (!res && fileHeader.infos.compatibility == PLG_COMPAT_EMULATOR) {
+        ctx->error.message = "Plugin is only compatible with emulators";
+        return false;
+    }
+
+    // Flags
+    if (!res) {
+        ctx->eventsSelfManaged = fileHeader.infos.eventsSelfManaged;
+        if (ctx->pluginMemoryStrategy == PLG_STRATEGY_SWAP && fileHeader.infos.swapNotNeeded)
+            ctx->pluginMemoryStrategy = PLG_STRATEGY_NONE;
+    }
 
     // Set memory region size according to header
     if (!res && R_FAILED((res = MemoryBlock__SetSize(memRegionSizes[fileHeader.infos.memoryRegionSize])))) {

@@ -218,7 +218,7 @@ void DebuggerMenu_DebugNextApplicationByForce(void)
                 }
             }
             else
-                strcpy(buf, "分配端口失败。\n请先在进程列表取消一个再试。");
+                strcpy(buf, "分配端口失败。\n请先在进程列表取消一个进程再试。");
         }
         GDB_UnlockAllContexts(&gdbServer);
     }

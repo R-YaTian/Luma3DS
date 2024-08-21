@@ -43,6 +43,12 @@
 u32 menuCombo = 0;
 bool isHidInitialized = false;
 u32 mcuFwVersion = 0;
+u8 mcuInfoTable[9] = {0};
+bool mcuInfoTableRead = false;
+
+const char *topScreenType = NULL;
+const char *bottomScreenType = NULL;
+bool areScreenTypesInitialized = false;
 
 // libctru redefinition:
 
@@ -226,8 +232,55 @@ static Result menuUpdateMcuInfo(void)
         mcuFwVersion = SYSTEM_VERSION(major - 0x10, minor, 0);
     }
 
+    if (!mcuInfoTableRead)
+        mcuInfoTableRead = R_SUCCEEDED(MCUHWC_ReadRegister(0x7F, mcuInfoTable, sizeof(mcuInfoTable)));
+
     svcCloseHandle(*mcuHwcHandlePtr);
     return res;
+}
+
+static const char *menuGetScreenTypeStr(u8 vendorId)
+{
+    switch (vendorId)
+    {
+        case 1:  return "IPS"; // SHARP
+        case 12: return "TN";  // JDN
+        default: return "未知";
+    }
+}
+
+static void menuReadScreenTypes(void)
+{
+    if (areScreenTypesInitialized)
+        return;
+
+    if (!isN3DS)
+    {
+        // Old3DS never have IPS screens and GetVendors is not implemented
+        topScreenType = "TN";
+        bottomScreenType = "TN";
+        areScreenTypesInitialized = true;
+    }
+    else
+    {
+        srvSetBlockingPolicy(false);
+
+        Result res = gspLcdInit();
+        if (R_SUCCEEDED(res))
+        {
+            u8 vendors = 0;
+            if (R_SUCCEEDED(GSPLCD_GetVendors(&vendors)))
+            {
+                topScreenType = menuGetScreenTypeStr(vendors >> 4);
+                bottomScreenType = menuGetScreenTypeStr(vendors & 0xF);
+                areScreenTypesInitialized = true;
+            }
+
+            gspLcdExit();
+        }
+
+        srvSetBlockingPolicy(true);
+    }
 }
 
 static inline u32 menuAdvanceCursor(u32 pos, u32 numItems, s32 displ)
@@ -278,13 +331,15 @@ void menuThreadMain(void)
     if(isN3DS)
         N3DSMenu_UpdateStatus();
 
-    while (!isServiceUsable("ac:u") || !isServiceUsable("hid:USER") || !isServiceUsable("gsp::Gpu") || !isServiceUsable("cdc:CHK"))
+    while (!isServiceUsable("ac:u") || !isServiceUsable("hid:USER") || !isServiceUsable("gsp::Gpu") || !isServiceUsable("gsp::Lcd") || !isServiceUsable("cdc:CHK"))
         svcSleepThread(250 * 1000 * 1000LL);
 
     handleShellOpened();
 
     hidInit(); // assume this doesn't fail
     isHidInitialized = true;
+
+    menuReadScreenTypes();
 
     while(!preTerminationRequested)
     {
@@ -402,7 +457,7 @@ static void menuDraw(Menu *menu, s32 selected, s32 page)
         u32 voltageFrac = (u32)(batteryVoltage * 100.0f) % 100u;
         u32 percentageInt = (u32)batteryPercentage;
         u32 percentageFrac = (u32)(batteryPercentage * 10.0f) % 10u;
-        Draw_DrawFormattedString(16, SCREEN_BOT_HEIGHT - 16, COLOR_WHITE, "温度：%02hhu°C  电压：%lu.%02luV  电量：%lu.%lu%%",batteryTemperature, // CP437
+        Draw_DrawFormattedString(16, SCREEN_BOT_HEIGHT - 16, COLOR_WHITE, "温度：%02hhu°C  电压：%lu.%02luV  电量：%lu.%lu%%", batteryTemperature,
                         voltageInt, voltageFrac,
                         percentageInt, percentageFrac);
     }

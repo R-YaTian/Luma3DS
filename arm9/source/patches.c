@@ -132,6 +132,7 @@ u32 installK11Extension(u8 *pos, u32 size, bool needToInitSd, u32 baseK11VA, u32
             u16 configFormatVersionMajor, configFormatVersionMinor;
             u32 config, multiConfig, bootConfig;
             u32 splashDurationMsec;
+            s8 volumeSliderOverride;
             u64 hbldr3dsxTitleId;
             u32 rosalinaMenuCombo;
             u32 pluginLoaderFlags;
@@ -215,6 +216,7 @@ u32 installK11Extension(u8 *pos, u32 size, bool needToInitSd, u32 baseK11VA, u32
     info->multiConfig = configData.multiConfig;
     info->bootConfig = configData.bootConfig;
     info->splashDurationMsec = configData.splashDurationMsec;
+    info->volumeSliderOverride = configData.volumeSliderOverride;
     info->hbldr3dsxTitleId = configData.hbldr3dsxTitleId;
     info->rosalinaMenuCombo = configData.rosalinaMenuCombo;
     info->pluginLoaderFlags = configData.pluginLoaderFlags;
@@ -793,19 +795,6 @@ void patchTwlBg(u8 *pos, u32 size)
             if (off != NULL)
                 memcpy(off, filter, sizeof(filter));
             // else error("Failed to apply enable_dsi_external_filter.");
-        }
-    }
-
-    if (CONFIG(ALLOWUPDOWNLEFTRIGHTDSI))
-    {
-        u16 *off2;
-        for (off2 = (u16 *)pos; (u8 *)off2 < pos + size && (off2[0] != 0x2040 || off2[1] != 0x4020); off2++);
-
-        if ((u8 *)off2 < pos + size)
-        {
-            // else error("Failed to apply allow_updown_leftright_dsi.");
-            for (u32 i = 0; i < 8; i++)
-                off2[i] = 0x46C0;
         }
     }
 }

@@ -64,6 +64,7 @@ typedef volatile s64 vs64;
 typedef struct ScreenFiltersCfgData {
     u16 cct;
     bool invert;
+    u8 colorCurveCorrection;
     s64 gammaEnc;
     s64 contrastEnc;
     s64 brightnessEnc;
@@ -74,6 +75,7 @@ typedef struct CfgData {
 
     u32 config, multiConfig, bootConfig;
     u32 splashDurationMsec;
+    s8 volumeSliderOverride;
 
     u64 hbldr3dsxTitleId;
     u32 rosalinaMenuCombo;

@@ -373,7 +373,7 @@ void MiscellaneousMenu_UpdateTimeDateNtp(void)
         if (cantStart)
             Draw_DrawFormattedString(10, posY + 2 * SPACING_Y, COLOR_WHITE, "在系统结束加载前不能同步时间/日期。") + SPACING_Y;
         else if (R_FAILED(res))
-            Draw_DrawFormattedString(10, posY + 2 * SPACING_Y, COLOR_WHITE, "执行失败 (%08lx)。", (u32)res) + SPACING_Y;
+            Draw_DrawFormattedString(10, posY + 2 * SPACING_Y, COLOR_WHITE, "执行失败 (0x%08lx)。", (u32)res) + SPACING_Y;
         else
             Draw_DrawFormattedString(10, posY + 2 * SPACING_Y, COLOR_WHITE, "时间日期更新成功。") + SPACING_Y;
 
@@ -402,7 +402,7 @@ void MiscellaneousMenu_NullifyUserTimeOffset(void)
         if(R_SUCCEEDED(res))
             Draw_DrawString(10, 30, COLOR_WHITE, "执行成功!\n\n请重启以应用更改。");
         else
-            Draw_DrawFormattedString(10, 30, COLOR_WHITE, "执行失败 (%08lx)。", res);
+            Draw_DrawFormattedString(10, 30, COLOR_WHITE, "执行失败 (0x%08lx)。", res);
         Draw_FlushFramebuffer();
         Draw_Unlock();
     }
@@ -483,7 +483,7 @@ void MiscellaneousMenu_DumpDspFirm(void)
         else
             Draw_DrawFormattedString(
                 10, 30, COLOR_WHITE,
-                "执行失败 (%08lx)。\n\n请保证主页正在运行且SD卡已插入。",
+                "执行失败 (0x%08lx)。\n\n请保证主页正在运行且SD卡已插入。",
                 res
             );
         Draw_FlushFramebuffer();

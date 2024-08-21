@@ -2085,12 +2085,12 @@ void RosalinaMenu_Cheats(void)
                     s32 j = page * CHEATS_PER_MENU_PAGE + i;
                     const char * checkbox = (cheats[j]->active ? "[开]" : "[关]");
                     sprintf(buf, "%s%s", checkbox, cheats[j]->name);
-                    if(cheats[j]->hasKeyCode){
+                    if (cheats[j]->hasKeyCode) {
                         Draw_DrawString(32, 48 + i * (SPACING_Y+4), COLOR_WHITE, buf);
                         Draw_CheatHotKey(48 + i * (SPACING_Y+4), COLOR_WHITE, cheats[j]->keyCode);
-                    }else{
+                    } else {
                         Draw_DrawString(32, 48 + i * (SPACING_Y+4), cheats[j]->valid ? COLOR_WHITE : COLOR_RED, buf);
-                    };
+                    }
                     Draw_DrawCharacter(16, 48 + i * (SPACING_Y+4), COLOR_TITLE, j == selected ? '>' : ' ');
                     Draw_DrawString(40, 48 + i * (SPACING_Y+4), cheats[j]->active ? COLOR_GREEN : COLOR_RED, cheats[j]->active ? "开" : "关");
                 }

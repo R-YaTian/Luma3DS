@@ -69,6 +69,11 @@ typedef struct Menu {
 extern u32 menuCombo;
 extern bool isHidInitialized;
 extern u32 mcuFwVersion;
+extern u8 mcuInfoTable[9];
+extern bool mcuInfoTableRead;
+extern const char *topScreenType;
+extern const char *bottomScreenType;
+extern bool areScreenTypesInitialized;
 
 // From main.c
 extern bool isN3DS;
@@ -85,7 +90,7 @@ u32 waitCombo(void);
 
 bool menuCheckN3ds(void);
 u32 menuCountItems(const Menu *menu);
-u32 numItemsWithoutHidden(const Menu *menu);
+// u32 numItemsWithoutHidden(const Menu *menu);
 
 MyThread *menuCreateThread(void);
 void    menuEnter(void);

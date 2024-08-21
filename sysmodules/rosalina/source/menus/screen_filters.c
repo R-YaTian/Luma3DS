@@ -29,6 +29,7 @@
 #include "memory.h"
 #include "menu.h"
 #include "menus/screen_filters.h"
+#include "menus/screen_filters_srgb_tables.h"
 #include "draw.h"
 #include "redshift/colorramp.h"
 
@@ -53,6 +54,7 @@ static inline bool ScreenFiltersMenu_IsDefaultSettingsFilter(const ScreenFilter 
     ok = ok && filter->gamma == 1.0f;
     ok = ok && filter->contrast == 1.0f;
     ok = ok && filter->brightness == 0.0f;
+    ok = ok && filter->colorCurveCorrection == 0;
     return ok;
 }
 
@@ -89,7 +91,7 @@ static u8 ScreenFilterMenu_CalculatePolynomialColorLutComponent(const float coef
     return (u8)CLAMP(levelInt, 0, 255); // clamp again just to be sure
 }
 
-static void ScreenFilterMenu_WritePolynomialColorLut(bool top, const float coeffs[][3], bool invert, float gamma, u32 dim)
+static void ScreenFilterMenu_WritePolynomialColorLut(bool top, u8 curveCorrection, const float coeffs[][3], bool invert, float gamma, u32 dim)
 {
     if (top)
         GPU_FB_TOP_COL_LUT_INDEX = 0;
@@ -99,9 +101,15 @@ static void ScreenFilterMenu_WritePolynomialColorLut(bool top, const float coeff
     for (int i = 0; i <= 255; i++) {
         Pixel px;
         int inLevel = invert ? 255 - i : i;
-        px.r = ScreenFilterMenu_CalculatePolynomialColorLutComponent(coeffs, 0, gamma, dim, inLevel);
-        px.g = ScreenFilterMenu_CalculatePolynomialColorLutComponent(coeffs, 1, gamma, dim, inLevel);
-        px.b = ScreenFilterMenu_CalculatePolynomialColorLutComponent(coeffs, 2, gamma, dim, inLevel);
+        const u8 (*tbl)[3] = curveCorrection == 2 ? ctrToSrgbTableBottom : ctrToSrgbTableTop;
+
+        u8 inLevelR = curveCorrection > 0 ? tbl[inLevel][0] : inLevel;
+        u8 inLevelG = curveCorrection > 0 ? tbl[inLevel][1] : inLevel;
+        u8 inLevelB = curveCorrection > 0 ? tbl[inLevel][2] : inLevel;
+
+        px.r = ScreenFilterMenu_CalculatePolynomialColorLutComponent(coeffs, 0, gamma, dim, inLevelR);
+        px.g = ScreenFilterMenu_CalculatePolynomialColorLutComponent(coeffs, 1, gamma, dim, inLevelG);
+        px.b = ScreenFilterMenu_CalculatePolynomialColorLutComponent(coeffs, 2, gamma, dim, inLevelB);
         px.z = 0;
 
         if (top)
@@ -127,7 +135,7 @@ static void ScreenFiltersMenu_ApplyColorSettings(bool top)
         { a * wp[0], a * wp[1], a * wp[2] },    // x^1
     };
 
-    ScreenFilterMenu_WritePolynomialColorLut(top, poly, inv, g, 1);
+    ScreenFilterMenu_WritePolynomialColorLut(top, filter->colorCurveCorrection, poly, inv, g, 1);
 }
 
 static void ScreenFiltersMenu_SetCct(u16 cct)
@@ -136,6 +144,30 @@ static void ScreenFiltersMenu_SetCct(u16 cct)
     bottomScreenFilter.cct = cct;
     ScreenFiltersMenu_ApplyColorSettings(true);
     ScreenFiltersMenu_ApplyColorSettings(false);
+}
+
+static void ScreenFiltersMenu_UpdateEntries(void)
+{
+    if (topScreenFilter.colorCurveCorrection == 0 || bottomScreenFilter.colorCurveCorrection == 0)
+    {
+        screenFiltersMenu.items[10].title = "Adjust both screens color curve to sRGB";
+        screenFiltersMenu.items[10].method = &ScreenFiltersMenu_SetSrgbColorCurves;
+    }
+    else
+    {
+        screenFiltersMenu.items[10].title = "Restore both screens color curve";
+        screenFiltersMenu.items[10].method = &ScreenFiltersMenu_RestoreColorCurves;
+    }
+}
+static void ScreenFiltersMenu_SetColorCurveCorrection(bool top, u8 colorCurveCorrection)
+{
+    if (top)
+        topScreenFilter.colorCurveCorrection = colorCurveCorrection;
+    else
+        bottomScreenFilter.colorCurveCorrection = colorCurveCorrection;
+
+    ScreenFiltersMenu_ApplyColorSettings(top);
+    ScreenFiltersMenu_UpdateEntries();
 }
 
 Menu screenFiltersMenu = {
@@ -151,6 +183,7 @@ Menu screenFiltersMenu = {
         { "[2300K]  偏暖白炽灯", METHOD, .method = &ScreenFiltersMenu_SetWarmIncandescent },
         { "[1900K]  蜡烛光", METHOD, .method = &ScreenFiltersMenu_SetCandle },
         { "[1200K]  火柴光", METHOD, .method = &ScreenFiltersMenu_SetEmber },
+		{ "调整上下屏色彩曲线为 sRGB", METHOD, .method = &ScreenFiltersMenu_SetSrgbColorCurves },
         { "高级设置", METHOD, .method = &ScreenFiltersMenu_AdvancedConfiguration },
         {},
     }
@@ -160,6 +193,12 @@ Menu screenFiltersMenu = {
 void ScreenFiltersMenu_Set##name(void)\
 {\
     ScreenFiltersMenu_SetCct(temp);\
+}
+
+#define DEF_SRGB_SETTER(top, profile, name)\
+void ScreenFiltersMenu_##name(void)\
+{\
+    ScreenFiltersMenu_SetColorCurveCorrection(top, profile);\
 }
 
 void ScreenFiltersMenu_RestoreSettings(void)
@@ -198,7 +237,7 @@ void ScreenFiltersMenu_LoadConfig(void)
 
     svcGetSystemInfo(&out, 0x10000, 0x104);
     topScreenFilter.gamma = (float)(out / FLOAT_CONV_MULT);
-    if (topScreenFilter.gamma < 0.0f || topScreenFilter.gamma > 1411.0f)
+    if (topScreenFilter.gamma < 0.0f || topScreenFilter.gamma > 8.0f)
         topScreenFilter.gamma = 1.0f;
 
     svcGetSystemInfo(&out, 0x10000, 0x105);
@@ -214,6 +253,9 @@ void ScreenFiltersMenu_LoadConfig(void)
     svcGetSystemInfo(&out, 0x10000, 0x107);
     topScreenFilter.invert = (bool)out;
 
+    svcGetSystemInfo(&out, 0x10000, 0x10D);
+    topScreenFilter.colorCurveCorrection = (u8)out;
+
     svcGetSystemInfo(&out, 0x10000, 0x108);
     bottomScreenFilter.cct = (u16)out;
     if (bottomScreenFilter.cct < 1000 || bottomScreenFilter.cct > 25100)
@@ -221,7 +263,7 @@ void ScreenFiltersMenu_LoadConfig(void)
 
     svcGetSystemInfo(&out, 0x10000, 0x109);
     bottomScreenFilter.gamma = (float)(out / FLOAT_CONV_MULT);
-    if (bottomScreenFilter.gamma < 0.0f || bottomScreenFilter.gamma > 1411.0f)
+    if (bottomScreenFilter.gamma < 0.0f || bottomScreenFilter.gamma > 8.0f)
         bottomScreenFilter.gamma = 1.0f;
 
     svcGetSystemInfo(&out, 0x10000, 0x10A);
@@ -236,6 +278,11 @@ void ScreenFiltersMenu_LoadConfig(void)
 
     svcGetSystemInfo(&out, 0x10000, 0x10C);
     bottomScreenFilter.invert = (bool)out;
+
+    svcGetSystemInfo(&out, 0x10000, 0x10E);
+    bottomScreenFilter.colorCurveCorrection = (u8)out;
+
+    ScreenFiltersMenu_UpdateEntries();
 }
 
 DEF_CCT_SETTER(6500, Default)
@@ -250,18 +297,30 @@ DEF_CCT_SETTER(2300, WarmIncandescent)
 DEF_CCT_SETTER(1900, Candle)
 DEF_CCT_SETTER(1200, Ember)
 
+void ScreenFiltersMenu_SetSrgbColorCurves(void)
+{
+    ScreenFiltersMenu_SetColorCurveCorrection(true, 1);
+    ScreenFiltersMenu_SetColorCurveCorrection(false, 2);
+}
+
+void ScreenFiltersMenu_RestoreColorCurves(void)
+{
+    ScreenFiltersMenu_SetColorCurveCorrection(true, 0);
+    ScreenFiltersMenu_SetColorCurveCorrection(false, 0);
+}
+
 static void ScreenFiltersMenu_ClampFilter(ScreenFilter *filter)
 {
     filter->cct = CLAMP(filter->cct, 1000, 25100);
-    filter->gamma = CLAMP(filter->gamma, 0.0f, 1411.0f); // ln(255) / ln(254/255): (254/255)^1411 <= 1/255
+    filter->gamma = CLAMP(filter->gamma, 0.0f, 8.0f);
     filter->contrast = CLAMP(filter->contrast, 0.0f, 255.0f);
     filter->brightness = CLAMP(filter->brightness, -1.0f, 1.0f);
 }
 
-static void ScreenFiltersMenu_AdvancedConfigurationChangeValue(bool isTopScreen, int pos, int mult, bool sync)
+static void ScreenFiltersMenu_AdvancedConfigurationChangeValue(int pos, int mult, bool sync)
 {
-    ScreenFilter *filter = isTopScreen != true ? &bottomScreenFilter : &topScreenFilter;
-    ScreenFilter *otherFilter = isTopScreen != true ? &topScreenFilter : &bottomScreenFilter;
+    ScreenFilter *filter = pos >= 5 ? &bottomScreenFilter : &topScreenFilter;
+    ScreenFilter *otherFilter = pos >= 5 ? &topScreenFilter : &bottomScreenFilter;
 
     int otherMult = sync ? mult : 0;
 
@@ -326,7 +385,6 @@ static u32 ScreenFiltersMenu_AdvancedConfigurationHelper(const ScreenFilter *fil
 void ScreenFiltersMenu_AdvancedConfiguration(void)
 {
     u32 posY;
-    u32 posMenuStart;
     u32 input = 0;
     u32 held = 0;
 
@@ -334,7 +392,6 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
     int mult = 1;
 
     bool sync = true;
-    bool showTopScreenMenu = true;
 
     do
     {
@@ -346,30 +403,25 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
         posY = Draw_DrawString(10, posY, COLOR_WHITE, "按住R按键更快的改变设置项的参数值。\n");
         posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "双屏幕同时更新：%s (L按键切换)   \n", sync ? "是" : "否") + SPACING_Y;
 
-        posMenuStart = posY;
-        if(showTopScreenMenu){
-            posY = Draw_DrawString(10, posMenuStart, COLOR_WHITE, "顶部屏幕：（Y按键切换）\n");
-            posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&topScreenFilter, 0, pos, posY) + SPACING_Y;
-        } else{
-            posY = Draw_DrawString(10, posMenuStart, COLOR_WHITE, "底部屏幕：（Y按键切换）\n");
-            posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&bottomScreenFilter, 0, pos, posY) + SPACING_Y;
-        }
+        posY = Draw_DrawString(10, posY, COLOR_WHITE, "上屏:\n");
+        posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&topScreenFilter, 0, pos, posY) + SPACING_Y;
+
+        posY = Draw_DrawString(10, posY, COLOR_WHITE, "下屏:\n");
+        posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&bottomScreenFilter, 5, pos, posY) + SPACING_Y;
 
         input = waitInputWithTimeoutEx(&held, -1);
         mult = (held & KEY_R) ? 10 : 1;
 
-        if (input & KEY_Y)
-            showTopScreenMenu = !showTopScreenMenu;
         if (input & KEY_L)
             sync = !sync;
         if (input & KEY_LEFT)
-            ScreenFiltersMenu_AdvancedConfigurationChangeValue(showTopScreenMenu, pos, -mult, sync);
+            ScreenFiltersMenu_AdvancedConfigurationChangeValue(pos, -mult, sync);
         if (input & KEY_RIGHT)
-            ScreenFiltersMenu_AdvancedConfigurationChangeValue(showTopScreenMenu, pos, mult, sync);
+            ScreenFiltersMenu_AdvancedConfigurationChangeValue(pos, mult, sync);
         if (input & KEY_UP)
-            pos = (5 + pos - 1) % 5;
+            pos = (10 + pos - 1) % 10;
         if (input & KEY_DOWN)
-            pos = (pos + 1) % 5;
+            pos = (pos + 1) % 10;
 
         Draw_FlushFramebuffer();
         Draw_Unlock();
