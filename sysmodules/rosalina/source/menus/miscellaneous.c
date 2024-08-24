@@ -67,7 +67,7 @@ typedef struct DspFirm {
 Menu miscellaneousMenu = {
     "其他设置",
     {
-        { "将当前应用替换为homebrew", METHOD, .method = &MiscellaneousMenu_SwitchBoot3dsxTargetTitle },
+        { "将hb.title替换为" HBLDR_DEFAULT_3DSX_TITLE_NAME, METHOD, .method = &MiscellaneousMenu_SwitchBoot3dsxTargetTitle },
         { "更改菜单呼出热键", METHOD, .method = &MiscellaneousMenu_ChangeMenuCombo },
         { "开始输入重定向", METHOD, .method = &MiscellaneousMenu_InputRedirection },
         { "通过NTP服务同步时间和日期", METHOD, .method = &MiscellaneousMenu_UpdateTimeDateNtp },
@@ -127,9 +127,9 @@ void MiscellaneousMenu_SwitchBoot3dsxTargetTitle(void)
         Luma_SharedConfig->hbldr_3dsx_tid = newTid;
 
     if (compareTids(newTid, HBLDR_DEFAULT_3DSX_TID))
-        miscellaneousMenu.items[0].title = "切换 hb. title 到当前应用";
+        miscellaneousMenu.items[0].title = "将hb.title替换为当前应用";
     else
-        miscellaneousMenu.items[0].title = "切换 hb. title 到 " HBLDR_DEFAULT_3DSX_TITLE_NAME;
+        miscellaneousMenu.items[0].title = "将hb.title替换为" HBLDR_DEFAULT_3DSX_TITLE_NAME;
 
     Draw_Lock();
     Draw_ClearFramebuffer();
