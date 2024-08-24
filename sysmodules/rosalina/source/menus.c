@@ -59,7 +59,7 @@ Menu rosalinaMenu = {
         { "保存设置", METHOD, .method = &RosalinaMenu_SaveSettings },
         { "关机", METHOD, .method = &RosalinaMenu_PowerOff },
         { "重启", METHOD, .method = &RosalinaMenu_Reboot },
-		{ "系统信息", METHOD, .method = &RosalinaMenu_ShowSystemInfo },
+        { "系统信息", METHOD, .method = &RosalinaMenu_ShowSystemInfo },
         { "官方致谢", METHOD, .method = &RosalinaMenu_ShowCredits },
         { "关于中文版", METHOD, .method = &RosalinaMenu_AboutCnVer },
         { "调试信息", METHOD, .method = &RosalinaMenu_ShowDebugInfo, .visibility = &rosalinaMenuShouldShowDebugInfo },
