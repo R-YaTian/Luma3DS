@@ -31,7 +31,7 @@ ifeq ($(strip $(VERSION_BUILD)),)
 	export VERSION_BUILD	:=	0
 endif
 
-ifeq ($(strip $(shell git describe --tags --match v[0-9]* | grep -)),)
+ifeq ($(strip $(shell git describe --tags --match v[0-9]* | sed 's/-chs// | grep -)),)
 	export IS_RELEASE		:=	1
 endif
 
