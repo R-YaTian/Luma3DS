@@ -360,6 +360,7 @@ bool payloadMenu(char *path, bool *hasDisplayedMenu)
 
     while(HID_PAD & MENU_BUTTONS);
     wait(2000ULL);
+    clearScreens(false);
 
     return false;
 }

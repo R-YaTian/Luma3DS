@@ -107,8 +107,8 @@ void initSystem(void)
         svcBreak(USERBREAK_PANIC);
 
     miscellaneousMenu.items[0].title = Luma_SharedConfig->selected_hbldr_3dsx_tid == HBLDR_DEFAULT_3DSX_TID ?
-        "将hb.title替换为当前应用" :
-        "将hb.title替换为" HBLDR_DEFAULT_3DSX_TITLE_NAME;
+        "切换hb.title: 当前应用" :
+        "切换hb.title: " HBLDR_DEFAULT_3DSX_TITLE_NAME;
 
     // **** DO NOT init services that don't come from KIPs here ****
     // Instead, init the service only where it's actually init (then deinit it).

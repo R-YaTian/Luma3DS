@@ -1199,4 +1199,5 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
 
     while(HID_PAD & PIN_BUTTONS);
     wait(2000ULL);
+    clearScreens(false);
 }
