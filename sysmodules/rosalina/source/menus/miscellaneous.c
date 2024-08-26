@@ -320,6 +320,12 @@ void MiscellaneousMenu_UpdateTimeDateNtp(void)
     int utcOffset = dt / 60;
     int utcOffsetMinute = dt%60;
     int absOffset;
+
+    Draw_Lock();
+    Draw_ClearFramebuffer();
+    Draw_FlushFramebuffer();
+    Draw_Unlock();
+
     do
     {
         Draw_Lock();
@@ -362,6 +368,11 @@ void MiscellaneousMenu_UpdateTimeDateNtp(void)
         }
     }
 
+    Draw_Lock();
+    Draw_ClearFramebuffer();
+    Draw_FlushFramebuffer();
+    Draw_Unlock();
+
     do
     {
         Draw_Lock();
@@ -383,7 +394,6 @@ void MiscellaneousMenu_UpdateTimeDateNtp(void)
         Draw_Unlock();
     }
     while(!(input & KEY_B) && !menuShouldExit);
-
 }
 
 void MiscellaneousMenu_NullifyUserTimeOffset(void)

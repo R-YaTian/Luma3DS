@@ -59,6 +59,7 @@ bool loadSplash(void)
     swapFramebuffers(true);
 
     wait(configData.splashDurationMsec);
+    clearScreens(true);
 
     return true;
 }

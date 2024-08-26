@@ -150,12 +150,12 @@ static void ScreenFiltersMenu_UpdateEntries(void)
 {
     if (topScreenFilter.colorCurveCorrection == 0 || bottomScreenFilter.colorCurveCorrection == 0)
     {
-        screenFiltersMenu.items[10].title = "Adjust both screens color curve to sRGB";
+        screenFiltersMenu.items[10].title = "调整上下屏色彩曲线为 sRGB";
         screenFiltersMenu.items[10].method = &ScreenFiltersMenu_SetSrgbColorCurves;
     }
     else
     {
-        screenFiltersMenu.items[10].title = "Restore both screens color curve";
+        screenFiltersMenu.items[10].title = "还原上下屏色彩曲线";
         screenFiltersMenu.items[10].method = &ScreenFiltersMenu_RestoreColorCurves;
     }
 }
@@ -362,7 +362,7 @@ static u32 ScreenFiltersMenu_AdvancedConfigurationHelper(const ScreenFilter *fil
     char buf[64];
 
     Draw_DrawCharacter(10, posY, COLOR_TITLE, pos == offset++ ? '>' : ' ');
-    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "色温:      %12dK    \n", filter->cct);
+    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "色温:       %12dK    \n", filter->cct);
 
     floatToString(buf, filter->gamma, 2, true);
     Draw_DrawCharacter(10, posY, COLOR_TITLE, pos == offset++ ? '>' : ' ');
@@ -392,6 +392,7 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
     int mult = 1;
 
     bool sync = true;
+    bool bTopScreen = true;
 
     do
     {
@@ -400,20 +401,22 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
 
         posY = 30;
         posY = Draw_DrawString(10, posY, COLOR_WHITE, "使用左/右按键减小或增加设置项的参数值。\n");
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "按住R按键更快的改变设置项的参数值。\n");
+        posY = Draw_DrawString(10, posY, COLOR_WHITE, "按住R键更快地更改参数值,Y键切换上下屏。\n");
         posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "双屏幕同时更新：%s (L按键切换)   \n", sync ? "是" : "否") + SPACING_Y;
 
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "上屏:\n");
-        posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&topScreenFilter, 0, pos, posY) + SPACING_Y;
-
-        posY = Draw_DrawString(10, posY, COLOR_WHITE, "下屏:\n");
-        posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&bottomScreenFilter, 5, pos, posY) + SPACING_Y;
+        posY = Draw_DrawString(10, posY, COLOR_WHITE, bTopScreen ? "上屏:\n" : "下屏:\n");
+        if (bTopScreen)
+            posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&topScreenFilter, 0, pos, posY) + SPACING_Y;
+        else
+            posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&bottomScreenFilter, 5, pos, posY) + SPACING_Y;
 
         input = waitInputWithTimeoutEx(&held, -1);
         mult = (held & KEY_R) ? 10 : 1;
 
         if (input & KEY_L)
             sync = !sync;
+        if (input & KEY_Y)
+            bTopScreen = !bTopScreen;
         if (input & KEY_LEFT)
             ScreenFiltersMenu_AdvancedConfigurationChangeValue(pos, -mult, sync);
         if (input & KEY_RIGHT)

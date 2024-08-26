@@ -588,17 +588,17 @@ void menuShow(Menu *root)
         else if(pressed & KEY_RIGHT)
         {
             s32 numItemsWithoutHidden = menuCountItemsWithoutHidden(currentMenu);
-            if(selectedItem + MAIN_PER_MENU_PAGE + 1 < numItemsWithoutHidden){
+            if(selectedItem + MAIN_PER_MENU_PAGE < numItemsWithoutHidden){
                 for(int i = 0;i < MAIN_PER_MENU_PAGE; i++){
                     selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                     if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                 }
-            }else if((selectedItem - 1) / MAIN_PER_MENU_PAGE == page){
-                if(numItems - selectedItem == 1){
+            }else if(selectedItem / MAIN_PER_MENU_PAGE == page){
+                if(numItemsWithoutHidden - selectedItem == 1){
                     selectedItem = 0;
                 }else{
-                    selectedItem = numItems - 1;
+                    selectedItem = numItemsWithoutHidden - 1;
                 }
             }
             else

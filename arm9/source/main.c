@@ -263,6 +263,7 @@ void main(int argc, char **argv, u32 magicWord)
     {
         while(HID_PAD & PIN_BUTTONS);
         wait(2000ULL);
+        clearScreens(false);
 
         //Update pressed buttons
         pressed = HID_PAD;
