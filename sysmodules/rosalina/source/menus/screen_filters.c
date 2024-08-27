@@ -405,10 +405,7 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
         posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "双屏幕同时更新：%s (L按键切换)   \n", sync ? "是" : "否") + SPACING_Y;
 
         posY = Draw_DrawString(10, posY, COLOR_WHITE, bTopScreen ? "上屏:\n" : "下屏:\n");
-        if (bTopScreen)
-            posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&topScreenFilter, 0, pos, posY) + SPACING_Y;
-        else
-            posY = ScreenFiltersMenu_AdvancedConfigurationHelper(&bottomScreenFilter, 5, pos, posY) + SPACING_Y;
+        posY = ScreenFiltersMenu_AdvancedConfigurationHelper(bTopScreen ? &topScreenFilter : &bottomScreenFilter, 0, pos, posY) + SPACING_Y;
 
         input = waitInputWithTimeoutEx(&held, -1);
         mult = (held & KEY_R) ? 10 : 1;
@@ -422,9 +419,9 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
         if (input & KEY_RIGHT)
             ScreenFiltersMenu_AdvancedConfigurationChangeValue(pos, mult, sync);
         if (input & KEY_UP)
-            pos = (10 + pos - 1) % 10;
+            pos = (5 + pos - 1) % 5;
         if (input & KEY_DOWN)
-            pos = (pos + 1) % 10;
+            pos = (pos + 1) % 5;
 
         Draw_FlushFramebuffer();
         Draw_Unlock();

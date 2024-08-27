@@ -575,7 +575,7 @@ void menuShow(Menu *root)
                 s32 numItemsWithoutHidden = menuCountItemsWithoutHidden(currentMenu);
                 s32 nullItem = MAIN_PER_MENU_PAGE - numItemsWithoutHidden % MAIN_PER_MENU_PAGE;
                 if(selectedItem >= MAIN_PER_MENU_PAGE - nullItem){
-                    selectedItem = 0;
+                    selectedItem = numItemsWithoutHidden - 1;
                 }else{
                     for(int i = 0;i < MAIN_PER_MENU_PAGE - nullItem; i++) {
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
@@ -594,16 +594,24 @@ void menuShow(Menu *root)
                     if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                 }
-            }else if(selectedItem / MAIN_PER_MENU_PAGE == page){
-                if(numItemsWithoutHidden - selectedItem == 1){
-                    selectedItem = 0;
-                }else{
+            }else{
+                s32 nullItem = MAIN_PER_MENU_PAGE - numItemsWithoutHidden % MAIN_PER_MENU_PAGE;
+                if(selectedItem % MAIN_PER_MENU_PAGE >= MAIN_PER_MENU_PAGE - nullItem){
                     selectedItem = numItemsWithoutHidden - 1;
+                } else if (numItemsWithoutHidden - selectedItem <= MAIN_PER_MENU_PAGE - nullItem) {
+                    for(int i = 0;i < MAIN_PER_MENU_PAGE - nullItem; i++){
+                        selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
+                        if (menuItemIsHidden(&currentMenu->items[selectedItem]))
+                            selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
+                    }
+                } else {
+                    for(int i = 0;i < MAIN_PER_MENU_PAGE; i++){
+                        selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
+                        if (menuItemIsHidden(&currentMenu->items[selectedItem]))
+                            selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
+                    }
                 }
             }
-            else
-                selectedItem = numItems - 1;
-
         }
 
         numItems = menuCountItems(currentMenu);

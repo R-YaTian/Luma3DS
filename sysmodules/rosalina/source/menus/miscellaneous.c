@@ -333,7 +333,7 @@ void MiscellaneousMenu_UpdateTimeDateNtp(void)
 
         absOffset = utcOffset - 12;
         absOffset = absOffset < 0 ? -absOffset : absOffset;
-        posY = Draw_DrawFormattedString(10, 30, COLOR_WHITE, "当前UTC偏移： %c%02d%02d", utcOffset < 12 ? '-' : '+', absOffset, utcOffsetMinute);
+        posY = Draw_DrawFormattedString(10, 30, COLOR_WHITE, "当前UTC偏移: %c%02d%02d", utcOffset < 12 ? '-' : '+', absOffset, utcOffsetMinute);
         posY = Draw_DrawFormattedString(10, posY + SPACING_Y + 4, COLOR_WHITE, "使用方向键 左/右 更改小时。");
         posY = Draw_DrawFormattedString(10, posY + SPACING_Y + 4, COLOR_WHITE, "使用方向键 上/下 更改分钟。");
         posY = Draw_DrawFormattedString(10, posY + SPACING_Y + 4, COLOR_WHITE, "然后按A完成。") + SPACING_Y;
@@ -380,7 +380,7 @@ void MiscellaneousMenu_UpdateTimeDateNtp(void)
 
         absOffset = utcOffset;
         absOffset = absOffset < 0 ? -absOffset : absOffset;
-        Draw_DrawFormattedString(10, 30, COLOR_WHITE, "当前UTC偏移： %c%02d", utcOffset < 0 ? '-' : '+', absOffset);
+        Draw_DrawFormattedString(10, 30, COLOR_WHITE, "当前UTC偏移: %c%02d", utcOffset < 0 ? '-' : '+', absOffset);
         if (cantStart)
             Draw_DrawFormattedString(10, posY + 2 * SPACING_Y, COLOR_WHITE, "在系统结束加载前不能同步时间/日期。") + SPACING_Y;
         else if (R_FAILED(res))
