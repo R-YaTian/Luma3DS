@@ -338,14 +338,15 @@ void MiscellaneousMenu_UpdateTimeDateNtp(void)
         posY = Draw_DrawFormattedString(10, posY + SPACING_Y + 4, COLOR_WHITE, "使用方向键 上/下 更改分钟。");
         posY = Draw_DrawFormattedString(10, posY + SPACING_Y + 4, COLOR_WHITE, "然后按A完成。") + SPACING_Y;
 
+        Draw_FlushFramebuffer();
+        Draw_Unlock();
+
         input = waitInput();
 
         if(input & KEY_LEFT) utcOffset = (27 + utcOffset - 1) % 27; // ensure utcOffset >= 0
         if(input & KEY_RIGHT) utcOffset = (utcOffset + 1) % 27;
         if(input & KEY_UP) utcOffsetMinute = (utcOffsetMinute + 1) % 60;
         if(input & KEY_DOWN) utcOffsetMinute = (60 + utcOffsetMinute - 1) % 60;
-        Draw_FlushFramebuffer();
-        Draw_Unlock();
     }
     while(!(input & (KEY_A | KEY_B)) && !menuShouldExit);
 
@@ -388,12 +389,10 @@ void MiscellaneousMenu_UpdateTimeDateNtp(void)
         else
             Draw_DrawFormattedString(10, posY + 2 * SPACING_Y, COLOR_WHITE, "时间日期更新成功。") + SPACING_Y;
 
-        input = waitInput();
-
         Draw_FlushFramebuffer();
         Draw_Unlock();
     }
-    while(!(input & KEY_B) && !menuShouldExit);
+    while(!(waitInput() & KEY_B) && !menuShouldExit);
 }
 
 void MiscellaneousMenu_NullifyUserTimeOffset(void)
