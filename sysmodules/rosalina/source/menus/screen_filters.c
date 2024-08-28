@@ -407,6 +407,9 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
         posY = Draw_DrawString(10, posY, COLOR_WHITE, bTopScreen ? "上屏:\n" : "下屏:\n");
         posY = ScreenFiltersMenu_AdvancedConfigurationHelper(bTopScreen ? &topScreenFilter : &bottomScreenFilter, 0, pos, posY) + SPACING_Y;
 
+        Draw_FlushFramebuffer();
+        Draw_Unlock();
+
         input = waitInputWithTimeoutEx(&held, -1);
         mult = (held & KEY_R) ? 10 : 1;
 
@@ -422,9 +425,6 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
             pos = (5 + pos - 1) % 5;
         if (input & KEY_DOWN)
             pos = (pos + 1) % 5;
-
-        Draw_FlushFramebuffer();
-        Draw_Unlock();
     }
     while(!(input & (KEY_A | KEY_B)) && !menuShouldExit);
 }
