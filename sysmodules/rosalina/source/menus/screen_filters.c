@@ -317,10 +317,10 @@ static void ScreenFiltersMenu_ClampFilter(ScreenFilter *filter)
     filter->brightness = CLAMP(filter->brightness, -1.0f, 1.0f);
 }
 
-static void ScreenFiltersMenu_AdvancedConfigurationChangeValue(int pos, int mult, bool sync)
+static void ScreenFiltersMenu_AdvancedConfigurationChangeValue(int pos, int mult, bool sync, bool bIsTopScreen)
 {
-    ScreenFilter *filter = pos >= 5 ? &bottomScreenFilter : &topScreenFilter;
-    ScreenFilter *otherFilter = pos >= 5 ? &topScreenFilter : &bottomScreenFilter;
+    ScreenFilter *filter = !bIsTopScreen ? &bottomScreenFilter : &topScreenFilter;
+    ScreenFilter *otherFilter = !bIsTopScreen ? &topScreenFilter : &bottomScreenFilter;
 
     int otherMult = sync ? mult : 0;
 
@@ -377,7 +377,7 @@ static u32 ScreenFiltersMenu_AdvancedConfigurationHelper(const ScreenFilter *fil
     posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "亮度:       %13s    \n", buf);
 
     Draw_DrawCharacter(10, posY, COLOR_TITLE, pos == offset++ ? '>' : ' ');
-    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "反色:      %13s    \n", filter->invert ? "是" : "否");
+    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "反色:       %13s    \n", filter->invert ? "是" : "否");
 
     return posY;
 }
@@ -415,9 +415,9 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
         if (input & KEY_Y)
             bTopScreen = !bTopScreen;
         if (input & KEY_LEFT)
-            ScreenFiltersMenu_AdvancedConfigurationChangeValue(pos, -mult, sync);
+            ScreenFiltersMenu_AdvancedConfigurationChangeValue(pos, -mult, sync, bTopScreen);
         if (input & KEY_RIGHT)
-            ScreenFiltersMenu_AdvancedConfigurationChangeValue(pos, mult, sync);
+            ScreenFiltersMenu_AdvancedConfigurationChangeValue(pos, mult, sync, bTopScreen);
         if (input & KEY_UP)
             pos = (5 + pos - 1) % 5;
         if (input & KEY_DOWN)

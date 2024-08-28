@@ -35,7 +35,7 @@ static char clkRateBuf[128 + 1];
 Menu N3DSMenu = {
     "New3DS菜单",
     {
-        { "禁用L2缓存", METHOD, .method = &N3DSMenu_EnableDisableL2Cache },
+        { "L2缓存:       已禁用", METHOD, .method = &N3DSMenu_EnableDisableL2Cache },
         { clkRateBuf, METHOD, .method = &N3DSMenu_ChangeClockRate },
         {},
     }
@@ -49,8 +49,8 @@ void N3DSMenu_UpdateStatus(void)
     svcGetSystemInfo(&higherClkRate, 0x10001, 1);
     svcGetSystemInfo(&L2CacheEnabled, 0x10001, 2);
 
-    N3DSMenu.items[0].title = L2CacheEnabled ? "禁用L2缓存" : "启用L2缓存";
-    sprintf(clkRateBuf, "设置CPU时钟频率到%luMHz", clkRate != 268 ? 268 : (u32)higherClkRate);
+    N3DSMenu.items[0].title = L2CacheEnabled ? "L2缓存:       已启用" : "L2缓存:       已禁用";
+    sprintf(clkRateBuf, "时钟频率:    %luMHz", clkRate == 268 ? 268 : (u32)higherClkRate);
 }
 
 void N3DSMenu_ChangeClockRate(void)

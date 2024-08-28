@@ -575,7 +575,7 @@ void menuShow(Menu *root)
                 s32 numItemsWithoutHidden = menuCountItemsWithoutHidden(currentMenu);
                 s32 nullItem = MAIN_PER_MENU_PAGE - numItemsWithoutHidden % MAIN_PER_MENU_PAGE;
                 if(selectedItem >= MAIN_PER_MENU_PAGE - nullItem){
-                    selectedItem = numItemsWithoutHidden - 1;
+                    selectedItem = numItemsWithoutHidden;
                 }else{
                     for(int i = 0;i < MAIN_PER_MENU_PAGE - nullItem; i++) {
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
@@ -597,7 +597,7 @@ void menuShow(Menu *root)
             }else{
                 s32 nullItem = MAIN_PER_MENU_PAGE - numItemsWithoutHidden % MAIN_PER_MENU_PAGE;
                 if(selectedItem % MAIN_PER_MENU_PAGE >= MAIN_PER_MENU_PAGE - nullItem){
-                    selectedItem = numItemsWithoutHidden - 1;
+                    selectedItem = numItemsWithoutHidden;
                 } else if (numItemsWithoutHidden - selectedItem <= MAIN_PER_MENU_PAGE - nullItem) {
                     for(int i = 0;i < MAIN_PER_MENU_PAGE - nullItem; i++){
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
