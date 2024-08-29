@@ -305,15 +305,41 @@ u32 menuCountItems(const Menu *menu)
     return n;
 }
 
-u32 menuCountItemsWithoutHidden(const Menu *menu)
+static u32 menuCountItemsVisibility(const Menu *menu)
 {
     u32 n;
     u32 m = 0;
-    for (n = 0; menu->items[n].action_type != MENU_END; n++){
+    for (n = 0; menu->items[n].action_type != MENU_END; n++) {
         if(menu->items[n].visibility == NULL || menu->items[n].visibility())
             m++;
-    };
+    }
     return m;
+}
+
+static s32 selectedItemVisibility(const Menu *menu, s32 selectedItem)
+{
+    s32 n;
+    s32 m = 0;
+    for (n = 0; n < selectedItem && menu->items[n].action_type != MENU_END; n++){
+        if(menu->items[n].visibility == NULL || menu->items[n].visibility())
+            m++;
+    }
+    return m - 1;
+}
+
+static void collectPageStartIndex(const Menu *menu, s32* tblPageStartIndex)
+{
+    s32 n = -1;
+    while (menuItemIsHidden(&menu->items[++n]));
+    tblPageStartIndex[0] = n;
+    for (s32 i = 1, j = 0; i < MAX_PAGES && menu->items[n].action_type != MENU_END; n++)
+    {
+        if (!menuItemIsHidden(&menu->items[n])) ++j;
+        if (j == ITEM_PER_PAGE) {
+            tblPageStartIndex[i++] = n + 1;
+            j = 0;
+        }
+    }
 }
 
 MyThread *menuCreateThread(void)
@@ -401,7 +427,7 @@ void menuLeave(void)
     Draw_Unlock();
 }
 
-static void menuDraw(Menu *menu, s32 selected, s32 page)
+static void menuDraw(Menu *menu, s32 selected, s32 pageStartIndex)
 {
     char versionString[16];
     s64 out;
@@ -431,13 +457,14 @@ static void menuDraw(Menu *menu, s32 selected, s32 page)
     s32 numItems = menuCountItems(menu);
     u32 dispY = 0;
 
-    for(s32 i = 0; i < MAIN_PER_MENU_PAGE && page * MAIN_PER_MENU_PAGE + i < numItems; i++)
+    for(s32 i = 0, j = 0; j < ITEM_PER_PAGE && pageStartIndex + i < numItems; i++)
     {
-        if (menuItemIsHidden(&menu->items[page * MAIN_PER_MENU_PAGE + i]))
+        if (menuItemIsHidden(&menu->items[pageStartIndex + i]))
             continue;
-        Draw_DrawString(48, 44 + dispY, COLOR_WHITE, menu->items[page * MAIN_PER_MENU_PAGE + i].title);
-        Draw_DrawCharacter(32, 44 + dispY, COLOR_TITLE, page * MAIN_PER_MENU_PAGE + i == selected ? '>' : ' ');
+        Draw_DrawString(48, 44 + dispY, COLOR_WHITE, menu->items[pageStartIndex + i].title);
+        Draw_DrawCharacter(32, 44 + dispY, COLOR_TITLE, pageStartIndex + i == selected ? '>' : ' ');
         dispY += SPACING_Y + 4;
+        ++j;
     }
 
     if(miniSocEnabled)
@@ -474,7 +501,7 @@ static void menuDraw(Menu *menu, s32 selected, s32 page)
 
 void menuShow(Menu *root)
 {
-    s32 selectedItem = 0, page = 0, pagePrev = 0;;
+    s32 selectedItem = 0, page = 0, pagePrev = 0, pageStartIndex[MAX_PAGES] = {0};
     Menu *currentMenu = root;
     u32 nbPreviousMenus = 0;
     Menu *previousMenus[0x80];
@@ -484,11 +511,15 @@ void menuShow(Menu *root)
     if (menuItemIsHidden(&currentMenu->items[selectedItem]))
         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
 
+    s32 numItemsVisibility = menuCountItemsVisibility(currentMenu);
+    s32 nullItem = ITEM_PER_PAGE - numItemsVisibility % ITEM_PER_PAGE;
+    collectPageStartIndex(currentMenu, &pageStartIndex[0]);
+
     Draw_Lock();
     Draw_ClearFramebuffer();
     Draw_FlushFramebuffer();
     hidSetRepeatParameters(0, 0);
-    menuDraw(currentMenu, selectedItem, page);
+    menuDraw(currentMenu, selectedItem, pageStartIndex[page]);
     Draw_Unlock();
 
     bool menuComboReleased = false;
@@ -564,20 +595,18 @@ void menuShow(Menu *root)
                 selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
         }
         else if(pressed & KEY_LEFT){
-            if(selectedItem - MAIN_PER_MENU_PAGE > 0){
-                for(int i = 0;i < MAIN_PER_MENU_PAGE; i++) {
+            if(selectedItem - ITEM_PER_PAGE > 0){
+                for(int i = 0;i < ITEM_PER_PAGE; i++) {
                     selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
                     if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
                 }
             }
             else{
-                s32 numItemsWithoutHidden = menuCountItemsWithoutHidden(currentMenu);
-                s32 nullItem = MAIN_PER_MENU_PAGE - numItemsWithoutHidden % MAIN_PER_MENU_PAGE;
-                if(selectedItem >= MAIN_PER_MENU_PAGE - nullItem){
-                    selectedItem = numItemsWithoutHidden;
+                if(selectedItem >= ITEM_PER_PAGE - nullItem){
+                    selectedItem = numItemsVisibility;
                 }else{
-                    for(int i = 0;i < MAIN_PER_MENU_PAGE - nullItem; i++) {
+                    for(int i = 0;i < ITEM_PER_PAGE - nullItem; i++) {
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
                         if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                             selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
@@ -587,25 +616,23 @@ void menuShow(Menu *root)
         }
         else if(pressed & KEY_RIGHT)
         {
-            s32 numItemsWithoutHidden = menuCountItemsWithoutHidden(currentMenu);
-            if(selectedItem + MAIN_PER_MENU_PAGE < numItemsWithoutHidden){
-                for(int i = 0;i < MAIN_PER_MENU_PAGE; i++){
+            if(selectedItem + ITEM_PER_PAGE < numItemsVisibility){
+                for(int i = 0;i < ITEM_PER_PAGE; i++){
                     selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                     if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                 }
             }else{
-                s32 nullItem = MAIN_PER_MENU_PAGE - numItemsWithoutHidden % MAIN_PER_MENU_PAGE;
-                if(selectedItem % MAIN_PER_MENU_PAGE >= MAIN_PER_MENU_PAGE - nullItem){
-                    selectedItem = numItemsWithoutHidden;
-                } else if (numItemsWithoutHidden - selectedItem <= MAIN_PER_MENU_PAGE - nullItem) {
-                    for(int i = 0;i < MAIN_PER_MENU_PAGE - nullItem; i++){
+                if(selectedItem % ITEM_PER_PAGE >= ITEM_PER_PAGE - nullItem){
+                    selectedItem = numItemsVisibility;
+                } else if (numItemsVisibility - selectedItem <= ITEM_PER_PAGE - nullItem) {
+                    for(int i = 0;i < ITEM_PER_PAGE - nullItem; i++){
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                         if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                             selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                     }
                 } else {
-                    for(int i = 0;i < MAIN_PER_MENU_PAGE; i++){
+                    for(int i = 0;i < ITEM_PER_PAGE; i++){
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                         if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                             selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
@@ -621,12 +648,12 @@ void menuShow(Menu *root)
         else if(selectedItem >= numItems)
             selectedItem = 0;
         pagePrev = page;
-        page = selectedItem / MAIN_PER_MENU_PAGE;
+        page = selectedItemVisibility(currentMenu, selectedItem) / ITEM_PER_PAGE;
 
         Draw_Lock();
         if(page != pagePrev)
             Draw_ClearFramebuffer();
-        menuDraw(currentMenu, selectedItem, page);
+        menuDraw(currentMenu, selectedItem, pageStartIndex[page]);
         Draw_Unlock();
     }
     while(!menuShouldExit);

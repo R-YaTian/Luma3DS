@@ -38,7 +38,8 @@
 
 #define CORE_APPLICATION  0
 #define CORE_SYSTEM       1
-#define MAIN_PER_MENU_PAGE 8
+#define ITEM_PER_PAGE     8
+#define MAX_PAGES         4
 
 #define FLOAT_CONV_MULT 1e8 // for screen filters
 
@@ -90,7 +91,6 @@ u32 waitCombo(void);
 
 bool menuCheckN3ds(void);
 u32 menuCountItems(const Menu *menu);
-// u32 numItemsWithoutHidden(const Menu *menu);
 
 MyThread *menuCreateThread(void);
 void    menuEnter(void);

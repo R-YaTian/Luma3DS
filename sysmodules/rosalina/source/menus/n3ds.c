@@ -50,7 +50,7 @@ void N3DSMenu_UpdateStatus(void)
     svcGetSystemInfo(&L2CacheEnabled, 0x10001, 2);
 
     N3DSMenu.items[0].title = L2CacheEnabled ? "L2缓存:       已启用" : "L2缓存:       已禁用";
-    sprintf(clkRateBuf, "时钟频率:    %luMHz", clkRate == 268 ? 268 : (u32)higherClkRate);
+    sprintf(clkRateBuf, "时钟频率:     %luMHz", clkRate == 268 ? 268 : (u32)higherClkRate);
 }
 
 void N3DSMenu_ChangeClockRate(void)
