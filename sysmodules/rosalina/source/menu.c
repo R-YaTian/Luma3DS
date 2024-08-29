@@ -320,7 +320,7 @@ static s32 selectedItemVisibility(const Menu *menu, s32 selectedItem)
 {
     s32 n;
     s32 m = 0;
-    for (n = 0; n < selectedItem && menu->items[n].action_type != MENU_END; n++){
+    for (n = 0; n <= selectedItem && menu->items[n].action_type != MENU_END; n++){
         if(menu->items[n].visibility == NULL || menu->items[n].visibility())
             m++;
     }
@@ -513,6 +513,7 @@ void menuShow(Menu *root)
 
     s32 numItemsVisibility = menuCountItemsVisibility(currentMenu);
     s32 nullItem = ITEM_PER_PAGE - numItemsVisibility % ITEM_PER_PAGE;
+    if (nullItem == ITEM_PER_PAGE) nullItem = 0;
     collectPageStartIndex(currentMenu, &pageStartIndex[0]);
 
     Draw_Lock();
@@ -595,16 +596,17 @@ void menuShow(Menu *root)
                 selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
         }
         else if(pressed & KEY_LEFT){
-            if(selectedItem - ITEM_PER_PAGE > 0){
+            if(selectedItemVisibility(currentMenu, selectedItem) - ITEM_PER_PAGE >= 0){
                 for(int i = 0;i < ITEM_PER_PAGE; i++) {
                     selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
                     if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
                 }
-            }
-            else{
-                if(selectedItem >= ITEM_PER_PAGE - nullItem){
-                    selectedItem = numItemsVisibility;
+            }else{
+                if(selectedItemVisibility(currentMenu, selectedItem) >= ITEM_PER_PAGE - nullItem){
+                    selectedItem = numItems - 1;
+                    if (menuItemIsHidden(&currentMenu->items[selectedItem]))
+                        selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
                 }else{
                     for(int i = 0;i < ITEM_PER_PAGE - nullItem; i++) {
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
@@ -616,23 +618,19 @@ void menuShow(Menu *root)
         }
         else if(pressed & KEY_RIGHT)
         {
-            if(selectedItem + ITEM_PER_PAGE < numItemsVisibility){
+            if(selectedItemVisibility(currentMenu, selectedItem) + ITEM_PER_PAGE < numItemsVisibility){
                 for(int i = 0;i < ITEM_PER_PAGE; i++){
                     selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                     if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                 }
             }else{
-                if(selectedItem % ITEM_PER_PAGE >= ITEM_PER_PAGE - nullItem){
-                    selectedItem = numItemsVisibility;
-                } else if (numItemsVisibility - selectedItem <= ITEM_PER_PAGE - nullItem) {
-                    for(int i = 0;i < ITEM_PER_PAGE - nullItem; i++){
+                if(selectedItemVisibility(currentMenu, selectedItem) % ITEM_PER_PAGE >= ITEM_PER_PAGE - nullItem){
+                    selectedItem = numItems - 1;
+                    if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
-                        if (menuItemIsHidden(&currentMenu->items[selectedItem]))
-                            selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
-                    }
                 } else {
-                    for(int i = 0;i < ITEM_PER_PAGE; i++){
+                    for(int i = 0;i < ITEM_PER_PAGE - nullItem; i++){
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
                         if (menuItemIsHidden(&currentMenu->items[selectedItem]))
                             selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
@@ -642,6 +640,13 @@ void menuShow(Menu *root)
         }
 
         numItems = menuCountItems(currentMenu);
+        if (menuItemIsHidden(&currentMenu->items[selectedItem]))
+            selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
+
+        numItemsVisibility = menuCountItemsVisibility(currentMenu);
+        nullItem = ITEM_PER_PAGE - numItemsVisibility % ITEM_PER_PAGE;
+        if (nullItem == ITEM_PER_PAGE) nullItem = 0;
+        collectPageStartIndex(currentMenu, &pageStartIndex[0]);
 
         if(selectedItem < 0)
             selectedItem = numItems - 1;
