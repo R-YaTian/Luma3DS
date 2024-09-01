@@ -427,6 +427,23 @@ void menuLeave(void)
     Draw_Unlock();
 }
 
+void menuLeaveWithBacklightOff(void)
+{
+    svcSleepThread(50 * 1000 * 1000);
+
+    Draw_Lock();
+    if(--menuRefCount == 0)
+    {
+        Draw_RestoreFramebuffer();
+        Draw_FreeFramebufferCache();
+        svcKernelSetState(0x10000, 2 | 1);
+        gspLcdInit();
+        GSPLCD_PowerOffBacklight(GSPLCD_SCREEN_BOTH);
+        gspLcdExit();
+    }
+    Draw_Unlock();
+}
+
 static void menuDraw(Menu *menu, s32 selected, s32 pageStartIndex)
 {
     char versionString[16];

@@ -250,7 +250,7 @@ void RosalinaMenu_Reboot(void)
 
         if(pressed & KEY_A)
         {
-            menuLeave();
+            menuLeaveWithBacklightOff();
             APT_HardwareResetAsync();
             return;
         } else if(pressed & KEY_B)
@@ -377,7 +377,7 @@ void RosalinaMenu_PowerOff(void) // Soft shutdown.
 
         if(pressed & KEY_A)
         {
-            menuLeave();
+            menuLeaveWithBacklightOff();
             srvPublishToSubscriber(0x203, 0);
             return;
         }
