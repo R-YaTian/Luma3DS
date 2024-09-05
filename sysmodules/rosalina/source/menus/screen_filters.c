@@ -183,7 +183,7 @@ Menu screenFiltersMenu = {
         { "[2300K]  偏暖白炽灯", METHOD, .method = &ScreenFiltersMenu_SetWarmIncandescent },
         { "[1900K]  蜡烛光", METHOD, .method = &ScreenFiltersMenu_SetCandle },
         { "[1200K]  火柴光", METHOD, .method = &ScreenFiltersMenu_SetEmber },
-		{ "[IPS推荐]增强上屏色彩", METHOD, .method = &ScreenFiltersMenu_SetTopScreenSrgbColorCurve },
+        { "[IPS推荐]增强上屏色彩", METHOD, .method = &ScreenFiltersMenu_SetTopScreenSrgbColorCurve },
         { "高级设置", METHOD, .method = &ScreenFiltersMenu_AdvancedConfiguration },
         {},
     }

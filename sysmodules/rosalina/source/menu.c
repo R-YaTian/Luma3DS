@@ -645,7 +645,7 @@ void menuShow(Menu *root)
                 if(selectedItemVisibility(currentMenu, selectedItem) % ITEM_PER_PAGE >= ITEM_PER_PAGE - nullItem){
                     selectedItem = numItems - 1;
                     if (menuItemIsHidden(&currentMenu->items[selectedItem]))
-                        selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
+                        selectedItem = menuAdvanceCursor(selectedItem, numItems, -1);
                 } else {
                     for(int i = 0;i < ITEM_PER_PAGE - nullItem; i++){
                         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
