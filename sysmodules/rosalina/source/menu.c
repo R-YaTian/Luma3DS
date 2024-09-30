@@ -40,10 +40,13 @@
 #include "menus/screen_filters.h"
 #include "shell.h"
 
+//#define ROSALINA_MENU_SELF_SCREENSHOT 1 // uncomment this to enable the feature
+
 u32 menuCombo = 0;
 bool isHidInitialized = false;
+bool isQtmInitialized = false;
 u32 mcuFwVersion = 0;
-u8 mcuInfoTable[9] = {0};
+u8 mcuInfoTable[10] = {0};
 bool mcuInfoTableRead = false;
 
 const char *topScreenType = NULL;
@@ -60,8 +63,20 @@ bool hidShouldUseIrrst(void)
 
 static inline u32 convertHidKeys(u32 keys)
 {
-    // Nothing to do yet
+    // No actual conversion done
     return keys;
+}
+
+void scanInputHook(void)
+{
+    hidScanInput();
+
+#ifdef ROSALINA_MENU_SELF_SCREENSHOT
+    // Ugly hack but should work. For self-documentation w/o capture card purposes only.
+    u32 selfScreenshotCombo = KEY_L | KEY_DUP | KEY_SELECT;
+    if ((hidKeysHeld() & selfScreenshotCombo) == selfScreenshotCombo && (hidKeysDown() & selfScreenshotCombo) != 0)
+        menuTakeSelfScreenshot();
+#endif
 }
 
 u32 waitInputWithTimeout(s32 msec)
@@ -81,7 +96,7 @@ u32 waitInputWithTimeout(s32 msec)
         }
         n++;
 
-        hidScanInput();
+        scanInputHook();
         keys = convertHidKeys(hidKeysDown()) | (convertHidKeys(hidKeysDownRepeat()) & DIRECTIONAL_KEYS);
         Draw_Unlock();
     } while (keys == 0 && !menuShouldExit && isHidInitialized && (msec < 0 || n < msec));
@@ -107,7 +122,7 @@ u32 waitInputWithTimeoutEx(u32 *outHeldKeys, s32 msec)
         }
         n++;
 
-        hidScanInput();
+        scanInputHook();
         keys = convertHidKeys(hidKeysDown()) | (convertHidKeys(hidKeysDownRepeat()) & DIRECTIONAL_KEYS);
         *outHeldKeys = convertHidKeys(hidKeysHeld());
         Draw_Unlock();
@@ -132,7 +147,7 @@ static u32 scanHeldKeys(void)
         keys = 0;
     else
     {
-        hidScanInput();
+        scanInputHook();
         keys = convertHidKeys(hidKeysHeld());
     }
 
@@ -283,6 +298,24 @@ static void menuReadScreenTypes(void)
     }
 }
 
+static void menuInitializeQtm(void)
+{
+    if (isQtmInitialized)
+        return;
+
+    // Steal QTM handle from GSP, because there is a limit of 3 sessions (or 2 before 9.3) for ALL qtm services
+    Handle qtmHandle = 0;
+    for (int i = 0; i < 30 && !qtmIsInitialized(); i++)
+    {
+        if (R_SUCCEEDED(svcControlService(SERVICEOP_STEAL_CLIENT_SESSION, &qtmHandle, "qtm:sp")))
+            *qtmGetSessionHandle() = qtmHandle;
+        else
+            svcSleepThread(100 * 100 * 1000LL);
+    }
+
+    isQtmInitialized = qtmIsInitialized();
+}
+
 static inline u32 menuAdvanceCursor(u32 pos, u32 numItems, s32 displ)
 {
     return (pos + numItems + displ) % numItems;
@@ -354,11 +387,16 @@ u32 g_blockMenuOpen = 0;
 
 void menuThreadMain(void)
 {
-    if(isN3DS)
-        N3DSMenu_UpdateStatus();
-
     while (!isServiceUsable("ac:u") || !isServiceUsable("hid:USER") || !isServiceUsable("gsp::Gpu") || !isServiceUsable("gsp::Lcd") || !isServiceUsable("cdc:CHK"))
         svcSleepThread(250 * 1000 * 1000LL);
+
+    if (isN3DS)
+    {
+        while (!isServiceUsable("qtm:u"))
+            svcSleepThread(250 * 1000 * 1000LL);
+        menuInitializeQtm();
+        N3DSMenu_UpdateStatus();
+    }
 
     handleShellOpened();
 
@@ -375,7 +413,9 @@ void menuThreadMain(void)
 
         Cheat_ApplyCheats();
 
-        if(((scanHeldKeys() & menuCombo) == menuCombo) && !g_blockMenuOpen)
+        u32 kHeld = scanHeldKeys();
+
+        if(((kHeld & menuCombo) == menuCombo) && !g_blockMenuOpen)
         {
             menuEnter();
             if(isN3DS) N3DSMenu_UpdateStatus();

@@ -25,23 +25,40 @@
 */
 
 #include <3ds.h>
+#include <math.h>
 #include "fmt.h"
 #include "menus/n3ds.h"
 #include "memory.h"
 #include "menu.h"
+#include "n3ds.h"
+#include "draw.h"
 
 static char clkRateBuf[128 + 1];
+
+static QtmCalibrationData lastQtmCal = {0};
+static bool qtmCalRead = false;
 
 Menu N3DSMenu = {
     "New3DS菜单",
     {
         { "L2缓存:       已禁用", METHOD, .method = &N3DSMenu_EnableDisableL2Cache },
         { clkRateBuf, METHOD, .method = &N3DSMenu_ChangeClockRate },
+        { "临时禁用3D防抖", METHOD, .method = &N3DSMenu_ToggleSs3d, .visibility = &N3DSMenu_CheckNotN2dsXl },
+        { "测试视差障壁位置", METHOD, .method = &N3DSMenu_TestBarrierPositions, .visibility = &N3DSMenu_CheckNotN2dsXl },
+        { "校准3D防抖", METHOD, .method = &N3DSMenu_Ss3dCalibration, .visibility = &N3DSMenu_CheckNotN2dsXl },
         {},
     }
 };
 
 static s64 clkRate = 0, higherClkRate = 0, L2CacheEnabled = 0;
+static bool qtmUnavailableAndNotBlacklisted = false; // true on N2DSXL, though we check MCU system model data first
+static QtmStatus lastUpdatedQtmStatus;
+
+bool N3DSMenu_CheckNotN2dsXl(void)
+{
+    // Also check if qtm could be initialized
+    return isQtmInitialized && mcuInfoTableRead && mcuInfoTable[9] < 5 && !qtmUnavailableAndNotBlacklisted;
+}
 
 void N3DSMenu_UpdateStatus(void)
 {
@@ -51,6 +68,25 @@ void N3DSMenu_UpdateStatus(void)
 
     N3DSMenu.items[0].title = L2CacheEnabled ? "L2缓存:       已启用" : "L2缓存:       已禁用";
     sprintf(clkRateBuf, "时钟频率:     %luMHz", clkRate == 268 ? 268 : (u32)higherClkRate);
+
+    if (N3DSMenu_CheckNotN2dsXl())
+    {
+        bool blacklisted = false;
+
+        // Read status
+        if (R_FAILED(QTMS_GetQtmStatus(&lastUpdatedQtmStatus)))
+            qtmUnavailableAndNotBlacklisted = true; // stop showing QTM options if unavailable but not blacklisted
+
+        else if (lastUpdatedQtmStatus == QTM_STATUS_UNAVAILABLE)
+            qtmUnavailableAndNotBlacklisted = R_FAILED(QTMU_IsCurrentAppBlacklisted(&blacklisted)) || !blacklisted;
+
+        MenuItem *item = &N3DSMenu.items[2];
+
+        if (lastUpdatedQtmStatus == QTM_STATUS_ENABLED)
+            item->title = "临时禁用3D防抖";
+        else
+            item->title = "临时启用3D防抖";
+    }
 }
 
 void N3DSMenu_ChangeClockRate(void)
@@ -71,4 +107,184 @@ void N3DSMenu_EnableDisableL2Cache(void)
     svcKernelSetState(10, (u32)newBitMask);
 
     N3DSMenu_UpdateStatus();
+}
+
+void N3DSMenu_ToggleSs3d(void)
+{
+    if (qtmUnavailableAndNotBlacklisted)
+        return;
+
+    if (lastUpdatedQtmStatus == QTM_STATUS_ENABLED)
+        QTMS_SetQtmStatus(QTM_STATUS_SS3D_DISABLED);
+    else // both SS3D disabled and unavailable/blacklisted states
+        QTMS_SetQtmStatus(QTM_STATUS_ENABLED);
+
+    N3DSMenu_UpdateStatus();
+}
+
+void N3DSMenu_TestBarrierPositions(void)
+{
+    Draw_Lock();
+    Draw_ClearFramebuffer();
+    Draw_FlushFramebuffer();
+    Draw_Unlock();
+
+    u8 pos = 0;
+    QTMS_DisableAutoBarrierControl(); // assume it doesn't fail
+    QTMS_GetCurrentBarrierPosition(&pos);
+
+    u32 pressed = 0;
+
+    do
+    {
+        Draw_Lock();
+
+        Draw_DrawString(16, 16, COLOR_TITLE, "测试视差障壁位置");
+        u32 posY = Draw_DrawString(16, 48, COLOR_WHITE, "使用方向键来调节障壁位置。\n");
+        posY = Draw_DrawString(16, posY, COLOR_WHITE, "每个位置对应5.2毫米的水平眼球运动\n(假设视角条件理想)\n");
+        posY = Draw_DrawString(16, posY, COLOR_WHITE, "若找到理想的中心位置, 稍后可以在校准子菜单中配置。\n");
+        posY = Draw_DrawString(16, posY, COLOR_WHITE, "退出时将恢复自动障壁调节行为。\n");
+
+        posY = Draw_DrawFormattedString(16, posY, COLOR_WHITE, "障壁位置: %2hhu\n", pos);
+
+        Draw_FlushFramebuffer();
+        pressed = waitInputWithTimeout(1000);
+
+        if (pressed & KEY_LEFT)
+        {
+            pos = pos > 11 ? 11 : pos; // pos is 13 when SS3D is disabled/camera is in use
+            pos = (12 + pos - 1) % 12;
+            QTMS_SetBarrierPosition(pos);
+        }
+        else if (pressed & KEY_RIGHT)
+        {
+            pos = pos > 11 ? 11 : pos; // pos is 13 when SS3D is disabled/camera is in use
+            pos = (pos + 1) % 12;
+            QTMS_SetBarrierPosition(pos);
+        }
+
+        Draw_Unlock();
+    } while(!menuShouldExit && !(pressed & KEY_B));
+
+    QTMS_EnableAutoBarrierControl();
+}
+
+void N3DSMenu_Ss3dCalibration(void)
+{
+    Draw_Lock();
+    Draw_ClearFramebuffer();
+    Draw_FlushFramebuffer();
+    Draw_Unlock();
+
+    u8 currentPos;
+    QtmTrackingData trackingData = {0};
+
+    if (R_FAILED(QTMS_GetCurrentBarrierPosition(&currentPos)))
+        currentPos = 13;
+
+    bool calReadFailed = false;
+
+    if (!qtmCalRead)
+    {
+        cfguInit();
+        calReadFailed = R_FAILED(CFG_GetConfigInfoBlk8(sizeof(QtmCalibrationData), QTM_CAL_CFG_BLK_ID, &lastQtmCal));
+        cfguExit();
+        if (!calReadFailed)
+            qtmCalRead = true;
+    }
+
+    bool trackingDisabled = currentPos == 13;
+
+    if (currentPos < 12)
+        QTMS_EnableAutoBarrierControl(); // assume this doesn't fail
+
+    u32 pressed = 0;
+    do
+    {
+        if (!trackingDisabled)
+        {
+            QTMS_GetCurrentBarrierPosition(&currentPos);
+            QTMU_GetTrackingData(&trackingData);
+        }
+
+        Draw_Lock();
+
+        Draw_DrawString(10, 10, COLOR_TITLE, "校准3D防抖");
+        u32 posY = 30;
+
+        if (trackingDisabled)
+            posY = Draw_DrawString(10, posY, COLOR_WHITE, "3D防抖已禁用或相机正在使用中, 请按B退出此菜单。\n");
+        else if (calReadFailed)
+            posY = Draw_DrawString(10, posY, COLOR_WHITE, "读取校准数据失败, 请按B退出此菜单。\n");
+        else
+        {
+            posY = Draw_DrawString(10, posY, COLOR_WHITE, "左/右:       +- 1\n");
+            posY = Draw_DrawString(10, posY, COLOR_WHITE, "上/下:       +- 0.1\n");
+            posY = Draw_DrawString(10, posY, COLOR_WHITE, "R/L:         +- 0.01\n");
+            posY = Draw_DrawString(10, posY, COLOR_WHITE, "A:           保存到系统设置\n");
+            posY = Draw_DrawString(10, posY, COLOR_WHITE, "Y:           重载上次保存的校准数据\n");
+            posY = Draw_DrawString(10, posY, COLOR_WHITE, "B:           退出此菜单\n");
+
+            char calStr[16];
+            floatToString(calStr, lastQtmCal.centerBarrierPosition, 2, true);
+            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "中心位置:     %-5s\n", calStr);
+            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "当前障壁位置: %-2hhu\n", currentPos);
+            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "当前眼距:     %-2d cm\n", (int)roundf(qtmEstimateEyeToCameraDistance(&trackingData) / 10.0f));
+            posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "最佳眼距:     %-2d cm\n", (int)roundf(lastQtmCal.viewingDistance / 10.0f));
+        }
+
+        Draw_FlushFramebuffer();
+        pressed = waitInputWithTimeout(15);
+
+        if (!calReadFailed)
+        {
+            if (pressed & KEY_LEFT)
+            {
+                lastQtmCal.centerBarrierPosition = fmodf(12.0f + lastQtmCal.centerBarrierPosition - 1.0f, 12.0f);
+                QTMS_SetCalibrationData(&lastQtmCal, false);
+            }
+            else if (pressed & KEY_RIGHT)
+            {
+                lastQtmCal.centerBarrierPosition = fmodf(lastQtmCal.centerBarrierPosition + 1.0f, 12.0f);
+                QTMS_SetCalibrationData(&lastQtmCal, false);
+            }
+
+            if (pressed & KEY_DOWN)
+            {
+                lastQtmCal.centerBarrierPosition = fmodf(12.0f + lastQtmCal.centerBarrierPosition - 0.1f, 12.0f);
+                QTMS_SetCalibrationData(&lastQtmCal, false);
+            }
+            else if (pressed & KEY_UP)
+            {
+                lastQtmCal.centerBarrierPosition = fmodf(lastQtmCal.centerBarrierPosition + 0.1f, 12.0f);
+                QTMS_SetCalibrationData(&lastQtmCal, false);
+            }
+
+            if (pressed & KEY_L)
+            {
+                lastQtmCal.centerBarrierPosition = fmodf(12.0f + lastQtmCal.centerBarrierPosition - 0.01f, 12.0f);
+                QTMS_SetCalibrationData(&lastQtmCal, false);
+            }
+            else if (pressed & KEY_R)
+            {
+                lastQtmCal.centerBarrierPosition = fmodf(lastQtmCal.centerBarrierPosition + 0.01f, 12.0f);
+                QTMS_SetCalibrationData(&lastQtmCal, false);
+            }
+
+            if (pressed & KEY_A)
+                QTMS_SetCalibrationData(&lastQtmCal, true);
+
+            if (pressed & KEY_Y)
+            {
+                cfguInit();
+                calReadFailed = R_FAILED(CFG_GetConfigInfoBlk8(sizeof(QtmCalibrationData), QTM_CAL_CFG_BLK_ID, &lastQtmCal));
+                cfguExit();
+                qtmCalRead = !calReadFailed;
+                if (qtmCalRead)
+                    QTMS_SetCalibrationData(&lastQtmCal, false);
+            }
+        }
+
+        Draw_Unlock();
+    } while(!menuShouldExit && !(pressed & KEY_B));
 }

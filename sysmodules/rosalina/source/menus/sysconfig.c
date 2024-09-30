@@ -32,6 +32,7 @@
 #include "fmt.h"
 #include "utils.h"
 #include "ifile.h"
+#include "luminance.h"
 
 Menu sysconfigMenu = {
     "系统设置",
@@ -42,6 +43,7 @@ Menu sysconfigMenu = {
         { "WIFI开关", METHOD, .method = &SysConfigMenu_ToggleWireless },
         { "电源键开关", METHOD, .method=&SysConfigMenu_TogglePowerButton },
         { "游戏卡槽开关", METHOD, .method=&SysConfigMenu_ToggleCardIfPower},
+		{ "背光亮度调节", METHOD, .method = &SysConfigMenu_ChangeScreenBrightness },
         {},
     }
 };
@@ -333,7 +335,7 @@ void SysConfigMenu_DisableForcedWifiConnection(void)
     {
         Draw_Lock();
         Draw_DrawString(10, 10, COLOR_TITLE, "断开WIFI连接");
-        Draw_DrawString(10, 30, COLOR_WHITE, "断开WIFI连接成功。");
+        Draw_DrawString(10, 30, COLOR_WHITE, "断开WIFI连接成功。\n注意: 自动连接可能保持中断。");
 
         u32 pressed = waitInputWithTimeout(1000);
         if(pressed & KEY_B)
@@ -487,4 +489,103 @@ void SysConfigMenu_AdjustVolume(void)
                 tempVolumeOverride = 100;
         }
     } while(!menuShouldExit);
+}
+
+void SysConfigMenu_ChangeScreenBrightness(void)
+{
+    Draw_Lock();
+    Draw_ClearFramebuffer();
+    Draw_FlushFramebuffer();
+    Draw_Unlock();
+
+    // gsp:LCD GetLuminance is stubbed on O3DS so we have to implement it ourselves... damn it.
+    // Assume top and bottom screen luminances are the same (should be; if not, we'll set them to the same values).
+    u32 luminance = getCurrentLuminance(false);
+    u32 minLum = getMinLuminancePreset();
+    u32 maxLum = getMaxLuminancePreset();
+
+    do
+    {
+        Draw_Lock();
+        Draw_DrawString(16, 16, COLOR_TITLE, "背光亮度调节");
+        u32 posY = 48;
+        posY = Draw_DrawFormattedString(
+            16,
+            posY,
+            COLOR_WHITE,
+            "当前亮度：%lu (最小： %lu, 最大： %lu)\n\n",
+            luminance,
+            minLum,
+            maxLum
+        );
+        posY = Draw_DrawString(16, posY, COLOR_WHITE, "调节方式：上/下 +-1，左/右 +-10。\n");
+        posY = Draw_DrawString(16, posY + 4, COLOR_WHITE, "按A开始调节，按B返回。\n\n");
+
+        posY = Draw_DrawString(16, posY, COLOR_RED, "警告：\n");
+        posY = Draw_DrawString(16, posY+4, COLOR_WHITE, "  * 亮度值将受预设限制。\n");
+        posY = Draw_DrawString(16, posY+4, COLOR_WHITE, "  * 调节亮度时不会显示下屏幕设置菜单。");
+        Draw_FlushFramebuffer();
+        Draw_Unlock();
+
+        u32 pressed = waitInputWithTimeout(1000);
+
+        if (pressed & KEY_A)
+            break;
+
+        if (pressed & KEY_B)
+            return;
+    }
+    while (!menuShouldExit);
+
+    Draw_Lock();
+
+    Draw_RestoreFramebuffer();
+    Draw_FreeFramebufferCache();
+
+    svcKernelSetState(0x10000, 2); // unblock gsp
+    gspLcdInit(); // assume it doesn't fail. If it does, brightness won't change, anyway.
+
+    // gsp:LCD will normalize the brightness between top/bottom screen, handle PWM, etc.
+
+    s32 lum = (s32)luminance;
+
+    do
+    {
+        u32 pressed = waitInputWithTimeout(1000);
+        if (pressed & DIRECTIONAL_KEYS)
+        {
+            if (pressed & KEY_UP)
+                lum += 1;
+            else if (pressed & KEY_DOWN)
+                lum -= 1;
+            else if (pressed & KEY_RIGHT)
+                lum += 10;
+            else if (pressed & KEY_LEFT)
+                lum -= 10;
+
+            lum = lum < (s32)minLum ? (s32)minLum : lum;
+            lum = lum > (s32)maxLum ? (s32)maxLum : lum;
+
+            // We need to call gsp here because updating the active duty LUT is a bit tedious (plus, GSP has internal state).
+            // This is actually SetLuminance:
+            GSPLCD_SetBrightnessRaw(BIT(GSP_SCREEN_TOP) | BIT(GSP_SCREEN_BOTTOM), lum);
+        }
+
+        if (pressed & KEY_B)
+            break;
+    }
+    while (!menuShouldExit);
+
+    gspLcdExit();
+    svcKernelSetState(0x10000, 2); // block gsp again
+
+    if (R_FAILED(Draw_AllocateFramebufferCache(FB_BOTTOM_SIZE)))
+    {
+        // Shouldn't happen
+        __builtin_trap();
+    }
+    else
+        Draw_SetupFramebuffer();
+
+    Draw_Unlock();
 }

@@ -49,7 +49,9 @@ Result IFile_OpenFromArchive(IFile *file, FS_Archive archive, FS_Path filePath, 
 
 Result IFile_Close(IFile *file)
 {
-  return FSFILE_Close(file->handle);
+  Result res = file->handle != 0 ? FSFILE_Close(file->handle) : 0;
+  file->handle = 0;
+  return res;
 }
 
 Result IFile_GetSize(IFile *file, u64 *size)
@@ -146,4 +148,9 @@ Result IFile_Write(IFile *file, u64 *total, const void *buffer, u32 len, u32 fla
 
   *total = cur;
   return res;
+}
+
+Result IFile_Flush(IFile *file)
+{
+  return FSFILE_Flush(file->handle);
 }

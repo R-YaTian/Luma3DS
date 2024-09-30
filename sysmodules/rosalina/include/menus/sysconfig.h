@@ -43,3 +43,4 @@ void SysConfigMenu_DisableForcedWifiConnection(void);
 void SysConfigMenu_ToggleCardIfPower(void);
 void SysConfigMenu_LoadConfig(void);
 void SysConfigMenu_AdjustVolume(void);
+void SysConfigMenu_ChangeScreenBrightness(void);

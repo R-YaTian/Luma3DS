@@ -40,25 +40,22 @@
 #include "memory.h"
 #include "fmt.h"
 #include "process_patches.h"
-#include "luminance.h"
 #include "luma_config.h"
 
 Menu rosalinaMenu = {
     "Rosalina 菜单",
     {
         { "屏幕截取", METHOD, .method = &RosalinaMenu_TakeScreenshot },
-        { "背光亮度调节", METHOD, .method = &RosalinaMenu_ChangeScreenBrightness },
+		{ "屏幕色温调节", MENU, .menu = &screenFiltersMenu },
         { "金手指", METHOD, .method = &RosalinaMenu_Cheats },
         { "", METHOD, .method = PluginLoader__MenuCallback},
+		{ "New3DS菜单", MENU, .menu = &N3DSMenu, .visibility = &menuCheckN3ds },
         { "进程列表", METHOD, .method = &RosalinaMenu_ProcessList },
         { "调试器选项", MENU, .menu = &debuggerMenu },
         { "系统设置", MENU, .menu = &sysconfigMenu },
-        { "屏幕色温调节", MENU, .menu = &screenFiltersMenu },
-        { "New3DS菜单", MENU, .menu = &N3DSMenu, .visibility = &menuCheckN3ds },
         { "其他选项", MENU, .menu = &miscellaneousMenu },
         { "保存设置", METHOD, .method = &RosalinaMenu_SaveSettings },
-        { "关机", METHOD, .method = &RosalinaMenu_PowerOff },
-        { "重启", METHOD, .method = &RosalinaMenu_Reboot },
+        { "关机或重启", METHOD, .method = &RosalinaMenu_PowerOffOrReboot },
         { "系统信息", METHOD, .method = &RosalinaMenu_ShowSystemInfo },
         { "官方致谢", METHOD, .method = &RosalinaMenu_ShowCredits },
         { "关于中文版", METHOD, .method = &RosalinaMenu_AboutCnVer },
@@ -96,6 +93,42 @@ void RosalinaMenu_SaveSettings(void)
         Draw_Unlock();
     }
     while(!(waitInput() & KEY_B) && !menuShouldExit);
+}
+
+void RosalinaMenu_PowerOffOrReboot(void)
+{
+    Draw_Lock();
+    Draw_ClearFramebuffer();
+    Draw_FlushFramebuffer();
+    Draw_Unlock();
+
+    do
+    {
+        Draw_Lock();
+        Draw_DrawString(16, 16, COLOR_TITLE, "关机或重启");
+        Draw_DrawString(16, 48, COLOR_WHITE, "按A关机。\n按Y重启。\n按B返回。");
+        Draw_FlushFramebuffer();
+        Draw_Unlock();
+
+        u32 pressed = waitInputWithTimeout(1000);
+
+        if(pressed & KEY_Y)
+        {
+            menuLeaveWithBacklightOff();
+            APT_HardwareResetAsync();
+            return;
+        }
+        else if(pressed & KEY_A)
+        {
+            // Soft shutdown
+            menuLeaveWithBacklightOff();
+            srvPublishToSubscriber(0x203, 0);
+            return;
+        }
+        else if(pressed & KEY_B)
+            return;
+    }
+    while(!menuShouldExit);
 }
 
 void RosalinaMenu_ShowSystemInfo(void)
@@ -223,170 +256,13 @@ void RosalinaMenu_AboutCnVer(void)
         Draw_Lock();
         Draw_DrawString(16, 16, COLOR_TITLE, "关于中文版");
 
-        u32 posY = Draw_DrawString(16, 48, COLOR_WHITE, "  Luma3DS中文版基于官方最新的v13.1.2\n版本，加入中文字库，优化菜单显示，并\n支持中文金手指及金手指快捷键提示。");
-        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "  感谢开源社区为此默默贡献的开发者们\n该中文化项目同样开源在Github上\n(https://github.com/R-YaTian/Luma3DS)\n本版本开源免费，禁止商业用途！\n                  Cynric & R-YaTian\n                          2024/09/05");
+        u32 posY = Draw_DrawString(16, 48, COLOR_WHITE, "  Luma3DS中文版基于官方最新的v13.2\n版本，加入中文字库，优化菜单显示，并\n支持中文金手指及金手指快捷键提示。");
+        posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "  感谢开源社区为此默默贡献的开发者们\n该中文化项目同样开源在Github上\n(https://github.com/R-YaTian/Luma3DS)\n本版本开源免费，禁止商业用途！\n                  Cynric & R-YaTian\n                          2024/09/30");
         Draw_FlushFramebuffer();
         Draw_Unlock();
     }
     while(!(waitInput() & KEY_B) && !menuShouldExit);
 }
-
-void RosalinaMenu_Reboot(void)
-{
-    Draw_Lock();
-    Draw_ClearFramebuffer();
-    Draw_FlushFramebuffer();
-    Draw_Unlock();
-
-    do
-    {
-        Draw_Lock();
-        Draw_DrawString(16, 16, COLOR_TITLE, "重启");
-        Draw_DrawString(16, 48, COLOR_WHITE, "按A确定，按B返回。");
-        Draw_FlushFramebuffer();
-        Draw_Unlock();
-
-        u32 pressed = waitInputWithTimeout(1000);
-
-        if(pressed & KEY_A)
-        {
-            menuLeaveWithBacklightOff();
-            APT_HardwareResetAsync();
-            return;
-        } else if(pressed & KEY_B)
-            return;
-    }
-    while(!menuShouldExit);
-}
-
-void RosalinaMenu_ChangeScreenBrightness(void)
-{
-    Draw_Lock();
-    Draw_ClearFramebuffer();
-    Draw_FlushFramebuffer();
-    Draw_Unlock();
-
-    // gsp:LCD GetLuminance is stubbed on O3DS so we have to implement it ourselves... damn it.
-    // Assume top and bottom screen luminances are the same (should be; if not, we'll set them to the same values).
-    u32 luminance = getCurrentLuminance(false);
-    u32 minLum = getMinLuminancePreset();
-    u32 maxLum = getMaxLuminancePreset();
-
-    do
-    {
-        Draw_Lock();
-        Draw_DrawString(16, 16, COLOR_TITLE, "背光亮度调节");
-        u32 posY = 48;
-        posY = Draw_DrawFormattedString(
-            16,
-            posY,
-            COLOR_WHITE,
-            "当前亮度：%lu (最小： %lu, 最大： %lu)\n\n",
-            luminance,
-            minLum,
-            maxLum
-        );
-        posY = Draw_DrawString(16, posY, COLOR_WHITE, "调节方式：上/下 +-1，左/右 +-10。\n");
-        posY = Draw_DrawString(16, posY + 4, COLOR_WHITE, "按A开始调节，按B返回。\n\n");
-
-        posY = Draw_DrawString(16, posY, COLOR_RED, "警告：\n");
-        posY = Draw_DrawString(16, posY+4, COLOR_WHITE, "  * 亮度值将受预设限制。\n");
-        posY = Draw_DrawString(16, posY+4, COLOR_WHITE, "  * 屏幕亮度值将在你重启后还原。");
-        Draw_FlushFramebuffer();
-        Draw_Unlock();
-
-        u32 pressed = waitInputWithTimeout(1000);
-
-        if (pressed & KEY_A)
-            break;
-
-        if (pressed & KEY_B)
-            return;
-    }
-    while (!menuShouldExit);
-
-    Draw_Lock();
-
-    Draw_RestoreFramebuffer();
-    Draw_FreeFramebufferCache();
-
-    svcKernelSetState(0x10000, 2); // unblock gsp
-    gspLcdInit(); // assume it doesn't fail. If it does, brightness won't change, anyway.
-
-    // gsp:LCD will normalize the brightness between top/bottom screen, handle PWM, etc.
-
-    s32 lum = (s32)luminance;
-
-    do
-    {
-        u32 pressed = waitInputWithTimeout(1000);
-        if (pressed & DIRECTIONAL_KEYS)
-        {
-            if (pressed & KEY_UP)
-                lum += 1;
-            else if (pressed & KEY_DOWN)
-                lum -= 1;
-            else if (pressed & KEY_RIGHT)
-                lum += 10;
-            else if (pressed & KEY_LEFT)
-                lum -= 10;
-
-            lum = lum < (s32)minLum ? (s32)minLum : lum;
-            lum = lum > (s32)maxLum ? (s32)maxLum : lum;
-
-            // We need to call gsp here because updating the active duty LUT is a bit tedious (plus, GSP has internal state).
-            // This is actually SetLuminance:
-            GSPLCD_SetBrightnessRaw(BIT(GSP_SCREEN_TOP) | BIT(GSP_SCREEN_BOTTOM), lum);
-        }
-
-        if (pressed & KEY_B)
-            break;
-    }
-    while (!menuShouldExit);
-
-    gspLcdExit();
-    svcKernelSetState(0x10000, 2); // block gsp again
-
-    if (R_FAILED(Draw_AllocateFramebufferCache(FB_BOTTOM_SIZE)))
-    {
-        // Shouldn't happen
-        __builtin_trap();
-    }
-    else
-        Draw_SetupFramebuffer();
-
-    Draw_Unlock();
-}
-
-void RosalinaMenu_PowerOff(void) // Soft shutdown.
-{
-    Draw_Lock();
-    Draw_ClearFramebuffer();
-    Draw_FlushFramebuffer();
-    Draw_Unlock();
-
-    do
-    {
-        Draw_Lock();
-        Draw_DrawString(16, 16, COLOR_TITLE, "关机");
-        Draw_DrawString(16, 48, COLOR_WHITE, "按A确定，按B返回。");
-        Draw_FlushFramebuffer();
-        Draw_Unlock();
-
-        u32 pressed = waitInputWithTimeout(1000);
-
-        if(pressed & KEY_A)
-        {
-            menuLeaveWithBacklightOff();
-            srvPublishToSubscriber(0x203, 0);
-            return;
-        }
-        else if(pressed & KEY_B)
-            return;
-    }
-    while(!menuShouldExit);
-}
-
 
 #define TRY(expr) if(R_FAILED(res = (expr))) goto end;
 
@@ -441,7 +317,7 @@ static Result RosalinaMenu_WriteScreenshot(IFile *file, u32 width, bool top, boo
 
 void RosalinaMenu_TakeScreenshot(void)
 {
-    IFile file;
+    IFile file = {0};
     Result res = 0;
 
     char filename[64];
@@ -479,6 +355,11 @@ void RosalinaMenu_TakeScreenshot(void)
             res = 0;
         FSUSER_CloseArchive(archive);
     }
+    else
+    {
+        archive = 0;
+        goto end;
+    }
 
     dateTimeToString(dateTimeStr, osGetTime(), true);
 
@@ -502,6 +383,9 @@ void RosalinaMenu_TakeScreenshot(void)
 
 end:
     IFile_Close(&file);
+
+    if (archive != 0)
+        FSUSER_CloseArchive(archive);
 
     if (R_FAILED(Draw_AllocateFramebufferCache(FB_BOTTOM_SIZE)))
         __builtin_trap(); // We're f***ed if this happens
@@ -530,6 +414,91 @@ end:
         Draw_Unlock();
     }
     while(!(waitInput() & KEY_B) && !menuShouldExit);
+}
+
+static Result menuWriteSelfScreenshot(IFile *file)
+{
+    u64 total;
+    Result res = 0;
+
+    u32 width = 320;
+    u32 lineSize = 3 * width;
+
+    u32 scaleFactorY = 1;
+    u32 numLinesScaled = 240 * scaleFactorY;
+
+    u32 addr = 0x0D800000; // keep this in check
+    u32 tmp;
+
+    u32 size = ((54 + lineSize * numLinesScaled * scaleFactorY) + 0xFFF) >> 12 << 12; // round-up
+    u8 *buffer = NULL;
+
+    TRY(svcControlMemoryEx(&tmp, addr, 0, size, MEMOP_ALLOC | MEMOP_REGION_SYSTEM, MEMPERM_READWRITE, true));
+    buffer = (u8 *)addr;
+
+    Draw_CreateBitmapHeader(buffer, width, numLinesScaled);
+
+    Draw_ConvertFrameBufferLines(buffer + 54, width, 0, numLinesScaled, scaleFactorY, false, false);
+    TRY(IFile_Write(file, &total, buffer, 54 + lineSize * numLinesScaled * scaleFactorY, 0)); // don't forget to write the header
+
+end:
+    if (buffer)
+        svcControlMemoryEx(&tmp, addr, 0, size, MEMOP_FREE, MEMPERM_DONTCARE, false);
+
+    return res;
+}
+
+void menuTakeSelfScreenshot(void)
+{
+    // Optimized for N3DS. May fail due to OOM.
+
+    IFile file = {0};
+    Result res = 0;
+
+    char filename[100];
+    char dateTimeStr[64];
+
+    FS_Archive archive;
+    FS_ArchiveID archiveId;
+    s64 out;
+    bool isSdMode;
+
+    timeSpentConvertingScreenshot = 0;
+    timeSpentWritingScreenshot = 0;
+
+    if(R_FAILED(svcGetSystemInfo(&out, 0x10000, 0x203))) svcBreak(USERBREAK_ASSERT);
+    isSdMode = (bool)out;
+
+    archiveId = isSdMode ? ARCHIVE_SDMC : ARCHIVE_NAND_RW;
+    Draw_Lock();
+    svcFlushEntireDataCache();
+
+    res = FSUSER_OpenArchive(&archive, archiveId, fsMakePath(PATH_EMPTY, ""));
+    if(R_SUCCEEDED(res))
+    {
+        res = FSUSER_CreateDirectory(archive, fsMakePath(PATH_ASCII, "/luma/screenshots"), 0);
+        if((u32)res == 0xC82044BE) // directory already exists
+            res = 0;
+        FSUSER_CloseArchive(archive);
+    }
+    else
+    {
+        archive = 0;
+        goto end;
+    }
+
+    dateTimeToString(dateTimeStr, osGetTime(), true);
+
+    sprintf(filename, "/luma/screenshots/rosalina_menu_%s.bmp", dateTimeStr);
+
+    TRY(IFile_Open(&file, archiveId, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, filename), FS_OPEN_CREATE | FS_OPEN_WRITE));
+    TRY(menuWriteSelfScreenshot(&file));
+
+end:
+    IFile_Close(&file);
+
+    if (archive != 0)
+        FSUSER_CloseArchive(archive);
+}
 
 #undef TRY
-}
