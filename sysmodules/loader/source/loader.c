@@ -366,6 +366,9 @@ static Result GetProgramInfoImpl(ExHeader_Info *exheaderInfo, u64 programHandle)
     }
     
     if (IsApplicationId(originalTitleId)) {
+        u32 appmemtype = OS_KernelConfig->app_memtype;
+        exheaderInfo->aci.local_caps.core_info.o3ds_system_mode = appmemtype < 6 ? (SystemMode)appmemtype : SYSMODE_O3DS_PROD;
+        exheaderInfo->aci.local_caps.core_info.n3ds_system_mode = appmemtype >= 6 ? (SystemMode)(appmemtype - 6 + 1) : SYSMODE_N3DS_PROD;
         if (g_memoryOverrideConfig.enable_o3ds)
             exheaderInfo->aci.local_caps.core_info.o3ds_system_mode = g_memoryOverrideConfig.o3ds_mode;
         if (g_memoryOverrideConfig.enable_n3ds)
