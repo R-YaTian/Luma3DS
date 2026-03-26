@@ -55,6 +55,7 @@ Menu rosalinaMenu = {
         { "系统设置", MENU, .menu = &sysconfigMenu },
         { "其他选项", MENU, .menu = &miscellaneousMenu },
         { "保存设置", METHOD, .method = &RosalinaMenu_SaveSettings },
+        { "回到Home菜单", METHOD, .method = &RosalinaMenu_ReturnToHomeMenu },
         { "关机或重启", METHOD, .method = &RosalinaMenu_PowerOffOrReboot },
         { "系统信息", METHOD, .method = &RosalinaMenu_ShowSystemInfo },
         { "官方致谢", METHOD, .method = &RosalinaMenu_ShowCredits },
@@ -93,6 +94,35 @@ void RosalinaMenu_SaveSettings(void)
         Draw_Unlock();
     }
     while(!(waitInput() & KEY_B) && !menuShouldExit);
+}
+
+void RosalinaMenu_ReturnToHomeMenu(void)
+{
+    Draw_Lock();
+    Draw_ClearFramebuffer();
+    Draw_FlushFramebuffer();
+    Draw_Unlock();
+
+    do
+    {
+        Draw_Lock();
+        Draw_DrawString(10, 10, COLOR_TITLE, "回到Home菜单");
+        Draw_DrawString(10, 30, COLOR_WHITE, "按A确认。\n按B返回。");
+        Draw_FlushFramebuffer();
+        Draw_Unlock();
+
+        u32 pressed = waitInputWithTimeout(1000);
+
+        if(pressed & KEY_A)
+        {
+            menuLeave();
+            srvPublishToSubscriber(0x204, 0);
+            return;
+        }
+        else if(pressed & KEY_B)
+            return;
+    }
+    while(!menuShouldExit);
 }
 
 void RosalinaMenu_PowerOffOrReboot(void)

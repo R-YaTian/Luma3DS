@@ -37,6 +37,7 @@ void RosalinaMenu_ShowCredits(void);
 void RosalinaMenu_AboutCnVer(void);
 void RosalinaMenu_ProcessList(void);
 void RosalinaMenu_SaveSettings(void);
+void RosalinaMenu_ReturnToHomeMenu(void);
 void RosalinaMenu_Cheats(void);
 
 void RosalinaMenu_PowerOffOrReboot(void);
