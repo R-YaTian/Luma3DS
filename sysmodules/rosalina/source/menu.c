@@ -196,6 +196,7 @@ u32 waitCombo(void)
 
 static MyThread menuThread;
 static u8 CTR_ALIGN(8) menuThreadStack[0x3000];
+static bool menuCloseRequested = false;
 
 static float batteryPercentage;
 static float batteryVoltage;
@@ -437,6 +438,7 @@ void menuEnter(void)
     Draw_Lock();
     if(!menuShouldExit && menuRefCount == 0)
     {
+        menuCloseRequested = false;
         menuRefCount++;
         svcKernelSetState(0x10000, 2 | 1);
         svcSleepThread(5 * 1000 * 100LL);
@@ -465,6 +467,11 @@ void menuLeave(void)
         svcKernelSetState(0x10000, 2 | 1);
     }
     Draw_Unlock();
+}
+
+void menuRequestClose(void)
+{
+    menuCloseRequested = true;
 }
 
 void menuLeaveWithBacklightOff(void)
@@ -568,6 +575,8 @@ void menuShow(Menu *root)
     if (menuItemIsHidden(&currentMenu->items[selectedItem]))
         selectedItem = menuAdvanceCursor(selectedItem, numItems, 1);
 
+    menuCloseRequested = false;
+
     s32 numItemsVisibility = menuCountItemsVisibility(currentMenu);
     s32 nullItem = ITEM_PER_PAGE - numItemsVisibility % ITEM_PER_PAGE;
     if (nullItem == ITEM_PER_PAGE) nullItem = 0;
@@ -617,6 +626,9 @@ void menuShow(Menu *root)
                     __builtin_trap(); // oops
                     break;
             }
+
+            if (menuCloseRequested)
+                break;
 
             Draw_Lock();
             Draw_ClearFramebuffer();
@@ -718,5 +730,5 @@ void menuShow(Menu *root)
         menuDraw(currentMenu, selectedItem, pageStartIndex[page]);
         Draw_Unlock();
     }
-    while(!menuShouldExit);
+    while(!menuShouldExit && !menuCloseRequested);
 }

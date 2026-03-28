@@ -97,6 +97,7 @@ MyThread *menuCreateThread(void);
 void    menuEnter(void);
 void    menuLeave(void);
 void    menuLeaveWithBacklightOff(void);
+void    menuRequestClose(void);
 void    menuThreadMain(void);
 void    menuShow(Menu *root);
 void    DispMessage(const char *title, const char *message);
