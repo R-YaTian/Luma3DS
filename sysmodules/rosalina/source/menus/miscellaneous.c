@@ -487,7 +487,7 @@ void MiscellaneousMenu_DumpDspFirm(void)
         else
             Draw_DrawFormattedString(
                 10, 30, COLOR_WHITE,
-                "执行失败 (0x%08lx)。\n\n请保证主页正在运行且SD卡已插入。",
+                "执行失败 (0x%08lx)。\n\n请保证主菜单正在运行且SD卡已插入!",
                 res
             );
         Draw_FlushFramebuffer();

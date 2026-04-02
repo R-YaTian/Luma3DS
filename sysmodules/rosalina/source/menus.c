@@ -55,7 +55,7 @@ Menu rosalinaMenu = {
         { "系统设置", MENU, .menu = &sysconfigMenu },
         { "其他选项", MENU, .menu = &miscellaneousMenu },
         { "保存设置", METHOD, .method = &RosalinaMenu_SaveSettings },
-        { "回到Home菜单", METHOD, .method = &RosalinaMenu_ReturnToHomeMenu },
+        { "回到HOME菜单", METHOD, .method = &RosalinaMenu_ReturnToHomeMenu },
         { "关机或重启", METHOD, .method = &RosalinaMenu_PowerOffOrReboot },
         { "系统信息", METHOD, .method = &RosalinaMenu_ShowSystemInfo },
         { "官方致谢", METHOD, .method = &RosalinaMenu_ShowCredits },
@@ -106,7 +106,7 @@ void RosalinaMenu_ReturnToHomeMenu(void)
     do
     {
         Draw_Lock();
-        Draw_DrawString(10, 10, COLOR_TITLE, "回到Home菜单");
+        Draw_DrawString(10, 10, COLOR_TITLE, "回到HOME菜单");
         Draw_DrawString(10, 30, COLOR_WHITE, "按A确认。\n按B返回。");
         Draw_FlushFramebuffer();
         Draw_Unlock();
@@ -255,7 +255,7 @@ void RosalinaMenu_ShowCredits(void)
         Draw_Lock();
         Draw_DrawString(16, 16, COLOR_TITLE, "Rosalina -- Luma3DS 官方致谢");
 
-        u32 posY = Draw_DrawString(16, 40, COLOR_WHITE, "Luma3DS (c) 2016-2025\nAuroraWright, TuxSH") + 8;
+        u32 posY = Draw_DrawString(16, 40, COLOR_WHITE, "Luma3DS (c) 2016-2026 LumaTeam") + SPACING_Y;
 
         posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "3DSX 加载部分 —— fincs");
         posY = Draw_DrawString(16, posY + SPACING_Y + 4, COLOR_WHITE, "网络与 GDB 调试部分 —— Stary");
