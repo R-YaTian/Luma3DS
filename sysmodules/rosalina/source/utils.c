@@ -111,57 +111,86 @@ u32 formatMemoryMapOfProcess(char *outbuf, u32 bufLen, Handle handle)
     return posInBuffer;
 }
 
+void calendarTimeFromMsSince1900(CalendarTime *out, u64 msSince1900)
+{
+    u32 daysSince1900 = (u32)(msSince1900 / MS_IN_A_DAY);
+    u32 msRem = (u32)(msSince1900 % MS_IN_A_DAY);
+
+    /////////////////////////////////////////////////////////////////////////////////////////////
+    // Adapted from: https://github.com/cassioneri/eaf/blob/main/algorithms/neri_schneider.hpp
+
+    // SPDX-License-Identifier: MIT
+    // SPDX-FileCopyrightText: 2022 Cassio Neri <cassio.neri@gmail.com>
+    // SPDX-FileCopyrightText: 2022 Lorenz Schneider <schneider@em-lyon.com>
+
+    // Shift and correction constants.
+    const u32 s = 82;
+    const u32 K = 719468 + 146097 * s;
+    const u32 L = 400 * s;
+
+    // Rata die shift.
+    const u32 N = (daysSince1900 - 25567) + K; // [modified (inlined function call, 1900 epoch shift applied)]
+
+    // Century.
+    const u32 N_1 = 4 * N + 3;
+    const u32 C   = N_1 / 146097;
+    const u32 N_C = N_1 % 146097 / 4;
+
+    // Year.
+    const u32 N_2 = 4 * N_C + 3;
+    const u64 P_2 = 2939745ull * N_2;
+    const u32 Z   = (u32)(P_2 / 4294967296ull);
+    const u32 N_Y = (u32)(P_2 % 4294967296ull) / 2939745 / 4;
+    const u32 Y   = 100 * C + Z;
+
+    // Month and day.
+    const u32 N_3 = 2141 * N_Y + 197913;
+    const u32 M   = N_3 / 65536;
+    const u32 D   = N_3 % 65536 / 2141;
+
+    // Map. (Notice the year correction, including type change.)
+    const u32 J   = N_Y >= 306;
+    const s32 Y_G = (Y - L) + J;
+    const u32 M_G = J ? M - 12 : M;
+    const u32 D_G = D + 1;
+    /////////////////////////////////////////////////////////////////////////////////////////////
+
+    u32 secs = msRem / 1000;
+    u32 mins = secs / 60;
+
+    out->year       = Y_G;
+    out->month      = (s8)M_G;
+    out->day        = (s8)D_G;
+    out->weekday    = (s8)((1 + daysSince1900) % 7); // 1900-01-01 was a Monday
+    out->hour       = (s8)(mins / 60);
+    out->minute     = (s8)(mins % 60);
+    out->second     = (s8)(secs % 60);
+    out->ms         = (s16)(msRem % 1000);
+}
+
+int calendarTimeToString(char *out, const CalendarTime *t)
+{
+    static const char *const shortWeekdayStrs[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+    static const char *const shortMonthStrs[12] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    };
+
+    s32 yyyy = CLAMP(t->year, 0, 9999);
+    return sprintf(
+        out, "%s, %02d %s %04ld %02d:%02d",
+        shortWeekdayStrs[t->weekday], t->day, shortMonthStrs[t->month - 1], yyyy, t->hour, t->minute
+    );
+}
+
 int dateTimeToString(char *out, u64 msSince1900, bool filenameFormat)
 {
-    // Conversion code adapted from https://stackoverflow.com/questions/21593692/convert-unix-timestamp-to-date-without-system-libs
-    // (original author @gnif under CC-BY-SA 4.0)
-    u32 seconds, minutes, hours, days, year, month;
-    u64 milliseconds = msSince1900;
-    seconds = milliseconds/1000;
-    milliseconds %= 1000;
-    minutes = seconds / 60;
-    seconds %= 60;
-    hours = minutes / 60;
-    minutes %= 60;
-    days = hours / 24;
-    hours %= 24;
-
-    year = 1900; // osGetTime starts in 1900
-
-    while(true)
-    {
-        bool leapYear = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
-        u16 daysInYear = leapYear ? 366 : 365;
-        if(days >= daysInYear)
-        {
-            days -= daysInYear;
-            ++year;
-        }
-        else
-        {
-            static const u8 daysInMonth[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-            for(month = 0; month < 12; ++month)
-            {
-                u8 dim = daysInMonth[month];
-
-                if (month == 1 && leapYear)
-                    ++dim;
-
-                if (days >= dim)
-                    days -= dim;
-                else
-                    break;
-            }
-            break;
-        }
-    }
-    days++;
-    month++;
+    CalendarTime t;
+    calendarTimeFromMsSince1900(&t, msSince1900);
 
     if (filenameFormat)
-        return sprintf(out, "%04lu-%02lu-%02lu_%02lu-%02lu-%02lu.%03llu", year, month, days, hours, minutes, seconds, milliseconds);
+        return sprintf(out, "%04ld-%02d-%02d_%02d-%02d-%02d.%03d", t.year, t.month, t.day, t.hour, t.minute, t.second, t.ms);
     else
-        return sprintf(out, "%04lu-%02lu-%02lu %02lu:%02lu:%02lu", year, month, days, hours, minutes, seconds);
+        return sprintf(out, "%04ld-%02d-%02d %02d:%02d:%02d", t.year, t.month, t.day, t.hour, t.minute, t.second);
 }
 
 int floatToString(char *out, float f, u32 precision, bool pad)
