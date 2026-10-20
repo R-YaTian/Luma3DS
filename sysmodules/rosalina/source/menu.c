@@ -531,16 +531,25 @@ static void menuDraw(Menu *menu, s32 selected, s32 pageStartIndex)
         ++j;
     }
 
+    char topRightStr[CALENDAR_TIME_STR_SIZE] = { 0 };
     if(miniSocEnabled)
     {
-        char ipBuffer[17];
         u32 ip = socGethostid();
         u8 *addr = (u8 *)&ip;
-        int n = sprintf(ipBuffer, "%hhu.%hhu.%hhu.%hhu", addr[0], addr[1], addr[2], addr[3]);
-        Draw_DrawString(SCREEN_BOT_WIDTH - 16 - (SPACING_X/2) * n, 16, COLOR_WHITE, ipBuffer);
+        sprintf(topRightStr, "%hhu.%hhu.%hhu.%hhu", addr[0], addr[1], addr[2], addr[3]);
     }
     else
-        Draw_DrawFormattedString(SCREEN_BOT_WIDTH - 16 - (SPACING_X/2) * 15, 16, COLOR_WHITE, "%15s", "");
+    {
+        CalendarTime t;
+        calendarTimeFromMsSince1900(&t, osGetTime());
+        calendarTimeToString(topRightStr, &t);
+    }
+
+    // Also clears what was previously displayed, if it was longer
+    Draw_DrawFormattedString(
+        SCREEN_BOT_WIDTH - 10 - SPACING_X * (CALENDAR_TIME_STR_SIZE - 1), 10, COLOR_WHITE,
+        "%*s", (int)(CALENDAR_TIME_STR_SIZE - 1), topRightStr
+    );
 
     if(mcuInfoRes == 0)
     {

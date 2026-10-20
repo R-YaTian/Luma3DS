@@ -89,5 +89,23 @@ static inline bool isServiceUsable(const char *name)
 void formatMemoryPermission(char *outbuf, MemPerm perm);
 void formatUserMemoryState(char *outbuf, MemState state);
 u32 formatMemoryMapOfProcess(char *outbuf, u32 bufLen, Handle handle);
+#define MS_IN_A_DAY             (1000ull * 3600 * 24)
+
+typedef struct CalendarTime {
+    s32 year;
+    s8 month;       // 1 to 12
+    s8 day;         // 1 to 31
+    s8 weekday;     // 0 (Sunday) to 6 (Saturday)
+    s8 hour;
+    s8 minute;
+    s8 second;
+    s16 ms;
+} CalendarTime;
+
+// Including NUL terminator
+#define CALENDAR_TIME_STR_SIZE  sizeof("Wed, 31 Dec 2025 23:59")
+
+void calendarTimeFromMsSince1900(CalendarTime *out, u64 msSince1900);
+int calendarTimeToString(char *out, const CalendarTime *t); // e.g. "Wed, 31 Dec 2025 23:59"
 int dateTimeToString(char *out, u64 msSince1900, bool filenameFormat);
 int floatToString(char *out, float f, u32 precision, bool pad);
