@@ -42,6 +42,7 @@
 #include "draw.h"
 #include "bootdiag.h"
 #include "shell.h"
+#include "luma_config.h"
 
 #include "task_runner.h"
 #include "plugin.h"
@@ -263,8 +264,9 @@ int main(void)
 
     Draw_Init();
     Cheat_SeedRng(svcGetSystemTick());
+    LumaConfig_LoadMcuConfig();
     ScreenFiltersMenu_LoadConfig();
-    SysConfigMenu_LoadConfig();
+    MiscellaneousMenu_UpdateTemperatureUnitEntry();
 
     MyThread *menuThread = menuCreateThread();
     MyThread *taskRunnerThread = taskRunnerCreateThread();

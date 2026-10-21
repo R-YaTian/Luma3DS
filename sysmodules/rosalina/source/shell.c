@@ -28,63 +28,12 @@
 #include "shell.h"
 #include "utils.h"
 #include "screen_filters.h"
-#include "luma_config.h"
-
-static void forceAudioOutput(u32 forceOp)
-{
-    // DSP/Codec sysmodule already have a way to force headphone output,
-    // but it's only for when the shell is closed (applied on shell close,
-    // cleared on shell opened); that mechanism is usually used by apps
-    // which have a "jukebox" feature  (e.g Pokémon SMD).
-
-    // This whole thing here is fragile and doesn't mesh well with the "codec"
-    // sysmodule. For example, inserting then removing HPs will undo what this
-    // function does.
-
-    // TODO: stop opening and closing cdc:CHK (and mcu::HWC), which
-    // unecessarily spawns and despawns threads.
-
-    // Wait for CSND to do its job
-    svcSleepThread(20 * 1000 * 1000LL);
-
-    Handle *cdcChkHandlePtr = cdcChkGetSessionHandle();
-    *cdcChkHandlePtr = 0;
-
-    Result res = srvGetServiceHandle(cdcChkHandlePtr, "cdc:CHK");
-    // Try to steal the handle if some other process is using the service (custom SVC)
-    if (R_FAILED(res))
-        res = svcControlService(SERVICEOP_STEAL_CLIENT_SESSION, cdcChkHandlePtr, "cdc:CHK");
-
-    if (R_FAILED(res))
-        return;
-
-    u8 reg;
-    switch (forceOp) {
-        case 0:
-        default:
-            __builtin_trap();
-            break;
-        case 1:
-            reg = 0x30;
-            break;
-        case 2:
-            reg = 0x20;
-            break;
-    }
-    res = CDCCHK_WriteRegisters2(100, 69, &reg, 1);
-
-    svcCloseHandle(*cdcChkHandlePtr);
-}
+#include "menus/sysconfig.h"
 
 void handleShellOpened(void)
 {
     // Somtimes this is called before Rosalina thread main executes,
     // sometimes not... how fun :))
-
-    s64 out = 0;
-    svcGetSystemInfo(&out, 0x10000, 4);
-    u32 multiConfig = (u32)out;
-    u32 forceOp = (multiConfig >> (2 * (u32)FORCEAUDIOOUTPUT)) & 3;
 
     // We need to check here if GSP has done its init stuff, in particular
     // clock and reset, otherwise we'll cause core1 to be in a waitstate
@@ -93,6 +42,6 @@ void handleShellOpened(void)
     if (isServiceUsable("gsp::Gpu"))
         ScreenFiltersMenu_RestoreSettings();
 
-    if (forceOp != 0 && isServiceUsable("cdc:CHK"))
-        forceAudioOutput(forceOp);
+    // Volume override, audio routing, LED master brightness override
+    SysConfigMenu_RestoreSettings();
 }

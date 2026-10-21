@@ -33,6 +33,7 @@
 #include "menus/screen_filters.h"
 #include "menus/screen_filters_srgb_tables.h"
 #include "draw.h"
+#include "luma_config.h"
 #include "redshift/colorramp.h"
 
 ScreenFilter topScreenFilter;
@@ -513,6 +514,8 @@ static void ScreenFiltersMenu_UpdateEntries(void)
 }
 static void ScreenFiltersMenu_SetColorCurveCorrection(bool top, u8 colorCurveCorrection)
 {
+    u8 flag = top ? MCUCFG_FLAG_ENHANCE_TOP_SCREEN_COLORS : MCUCFG_FLAG_ENHANCE_BOTTOM_SCREEN_COLORS;
+
     if (top)
         topScreenFilter.colorCurveCorrection = colorCurveCorrection;
     else
@@ -520,6 +523,9 @@ static void ScreenFiltersMenu_SetColorCurveCorrection(bool top, u8 colorCurveCor
 
     ScreenFiltersMenu_ApplyColorSettings(top);
     ScreenFiltersMenu_UpdateEntries();
+
+    // Stored in MCU, saved immediately
+    LumaConfig_SetMcuConfigFlags(flag, colorCurveCorrection != 0 ? flag : 0);
 }
 
 Menu screenFiltersMenu = {
@@ -587,7 +593,7 @@ static float ScreenFiltersMenu_LoadFloatConfig(u32 id, float minVal, float maxVa
     return val >= minVal && val <= maxVal ? val : defaultVal;
 }
 
-static void ScreenFiltersMenu_LoadFilterConfig(ScreenFilter *filter, u32 cctId, const u32 *gammaIds, const u32 *contrastIds, u32 invertId, u32 colorCurveCorrectionId)
+static void ScreenFiltersMenu_LoadFilterConfig(ScreenFilter *filter, u32 cctId, const u32 *gammaIds, const u32 *contrastIds, u32 invertId)
 {
     s64 out = 0;
 
@@ -604,9 +610,6 @@ static void ScreenFiltersMenu_LoadFilterConfig(ScreenFilter *filter, u32 cctId, 
 
     svcGetSystemInfo(&out, 0x10000, invertId);
     filter->invert = (bool)out;
-
-    svcGetSystemInfo(&out, 0x10000, colorCurveCorrectionId);
-    filter->colorCurveCorrection = (u8)out;
 }
 
 void ScreenFiltersMenu_LoadConfig(void)
@@ -617,8 +620,12 @@ void ScreenFiltersMenu_LoadConfig(void)
     static const u32 bottomGammaIds[3] = { 0x109, 0x114, 0x115 };
     static const u32 bottomContrastIds[3] = { 0x10A, 0x116, 0x117 };
 
-    ScreenFiltersMenu_LoadFilterConfig(&topScreenFilter, 0x102, topGammaIds, topContrastIds, 0x107, 0x10D);
-    ScreenFiltersMenu_LoadFilterConfig(&bottomScreenFilter, 0x108, bottomGammaIds, bottomContrastIds, 0x10C, 0x10E);
+    ScreenFiltersMenu_LoadFilterConfig(&topScreenFilter, 0x102, topGammaIds, topContrastIds, 0x107);
+    ScreenFiltersMenu_LoadFilterConfig(&bottomScreenFilter, 0x108, bottomGammaIds, bottomContrastIds, 0x10C);
+
+    // Color curve correction ("enhance screen colors") settings are stored in MCU (LumaConfig_LoadMcuConfig must have been called)
+    topScreenFilter.colorCurveCorrection = (lumaMcuConfig.flags & MCUCFG_FLAG_ENHANCE_TOP_SCREEN_COLORS) ? 1 : 0;
+    bottomScreenFilter.colorCurveCorrection = (lumaMcuConfig.flags & MCUCFG_FLAG_ENHANCE_BOTTOM_SCREEN_COLORS) ? 2 : 0;
 
     ScreenFiltersMenu_UpdateEntries();
 }

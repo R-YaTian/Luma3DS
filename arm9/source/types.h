@@ -64,7 +64,6 @@ typedef volatile s64 vs64;
 typedef struct ScreenFiltersCfgData {
     u16 cct;
     bool invert;
-    u8 colorCurveCorrection;
     s64 gammaEnc[3];    // per-channel (R, G, B)
     s64 contrastEnc[3]; // per-channel (R, G, B)
 } ScreenFiltersCfgData;
@@ -74,7 +73,12 @@ typedef struct CfgData {
 
     u32 config, multiConfig, bootConfig;
     u32 splashDurationMsec;
-    s8 volumeSliderOverride;
+
+    // Stored in MCU, see CfgDataMcu
+    u8 mcuConfigFlags;
+    u8 volumeSliderOverride;
+    s8 volumeSliderOverrideStereoBalance;
+    u8 ledMasterBrightnessOverride;
 
     u64 hbldr3dsxTitleId;
     u32 rosalinaMenuCombo;
@@ -88,11 +92,19 @@ typedef struct CfgData {
     u8 autobootCtrAppmemtype;
 } CfgData;
 
+// Stored at the end of the MCU free register area.
+// Overrides use bit7 as "disabled" flag and bits 0-6 as percentage (0 to 100, other values meaning "not set").
 typedef struct
 {
+    // Not checksummed, can be changed at runtime (e.g. by Rosalina)
+    u8 flags;                               // see MCUCFG_FLAG_* in config.h
+    u8 volumeSliderOverride;                // volume slider override
+    s8 volumeSliderOverrideStereoBalance;   // -100 (left) to +100 (right), only applies to I2S1
+    u8 ledMasterBrightnessOverride;         // LED master brightness override
+
+    // Checksummed
     u16 lumaVersion;
     u8 bootCfg;
-    u8 reserved[2];
     u8 checksum;
 } CfgDataMcu;
 

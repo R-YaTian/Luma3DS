@@ -27,6 +27,7 @@
 #define _GNU_SOURCE // for strchrnul
 
 #include <assert.h>
+#include <stddef.h>
 #include <strings.h>
 #include "config.h"
 #include "memory.h"
@@ -53,7 +54,8 @@ ConfigurationStatus needConfig;
 static CfgData oldConfig;
 
 static CfgDataMcu configDataMcu;
-static_assert(sizeof(CfgDataMcu) > 0, "wrong data size");
+// Must not overlap with other data stored in the 200-byte MCU free register area (e.g. at offset 188, u32)
+static_assert(sizeof(CfgDataMcu) == 8, "wrong data size");
 
 // INI parsing
 // ===========================================================
@@ -513,11 +515,6 @@ static int configIniHandler(void* user, const char* section, const char* name, c
             CHECK_PARSE_OPTION(parseBoolOption(&opt, value));
             cfg->topScreenFilter.invert = opt;
             return 1;
-        } else if (strcmp(name, "screen_filters_top_color_curve_adj") == 0) {
-            s64 opt;
-            CHECK_PARSE_OPTION(parseDecIntOption(&opt, value, 0, 2));
-            cfg->topScreenFilter.colorCurveCorrection = (u8)opt;
-            return 1;
         } else if (strcmp(name, "screen_filters_bot_cct") == 0) {
             s64 opt;
             CHECK_PARSE_OPTION(parseDecIntOption(&opt, value, 1000, 25100));
@@ -537,11 +534,6 @@ static int configIniHandler(void* user, const char* section, const char* name, c
             bool opt;
             CHECK_PARSE_OPTION(parseBoolOption(&opt, value));
             cfg->bottomScreenFilter.invert = opt;
-            return 1;
-        } else if (strcmp(name, "screen_filters_bot_color_curve_adj") == 0) {
-            s64 opt;
-            CHECK_PARSE_OPTION(parseDecIntOption(&opt, value, 0, 2));
-            cfg->bottomScreenFilter.colorCurveCorrection = (u8)opt;
             return 1;
         } else {
             CHECK_PARSE_OPTION(-1);
@@ -570,27 +562,7 @@ static int configIniHandler(void* user, const char* section, const char* name, c
             }
         }
 
-        if (strcmp(name, "force_audio_output") == 0) {
-            if (strcasecmp(value, "off") == 0) {
-                cfg->multiConfig |= 0 << (2 * (u32)FORCEAUDIOOUTPUT);
-                return 1;
-            } else if (strcasecmp(value, "headphones") == 0) {
-                cfg->multiConfig |= 1 << (2 * (u32)FORCEAUDIOOUTPUT);
-                return 1;
-            } else if (strcasecmp(value, "speakers") == 0) {
-                cfg->multiConfig |= 2 << (2 * (u32)FORCEAUDIOOUTPUT);
-                return 1;
-            } else {
-                CHECK_PARSE_OPTION(-1);
-            }
-        } else if (strcmp(name, "volume_slider_override") == 0) {
-            s64 opt;
-            CHECK_PARSE_OPTION(parseDecIntOption(&opt, value, -1, 100));
-            cfg->volumeSliderOverride = (s8)opt;
-            return 1;
-        } else {
-            CHECK_PARSE_OPTION(-1);
-        }
+        CHECK_PARSE_OPTION(-1);
     } else {
         CHECK_PARSE_OPTION(-1);
     }
@@ -607,7 +579,6 @@ static size_t saveLumaIniConfigToStr(char *out)
     const char *splashPosStr;
     const char *n3dsCpuStr;
     const char *autobootModeStr;
-    const char *forceAudioOutputStr;
 
     switch (MULTICONFIG(SPLASH)) {
         default: case 0: splashPosStr = "off"; break;
@@ -626,12 +597,6 @@ static size_t saveLumaIniConfigToStr(char *out)
         default: case 0: autobootModeStr = "off"; break;
         case 1: autobootModeStr = "3ds"; break;
         case 2: autobootModeStr = "dsi"; break;
-    }
-
-    switch (MULTICONFIG(FORCEAUDIOOUTPUT)) {
-        default: case 0: forceAudioOutputStr = "off"; break;
-        case 1: forceAudioOutputStr = "headphones"; break;
-        case 2: forceAudioOutputStr = "speakers"; break;
     }
 
     if (VERSION_BUILD != 0) {
@@ -680,7 +645,6 @@ static size_t saveLumaIniConfigToStr(char *out)
         (int)cfg->ntpTzOffetMinutes,
 
         (int)cfg->topScreenFilter.cct, (int)cfg->bottomScreenFilter.cct,
-        (int)cfg->topScreenFilter.colorCurveCorrection, (int)cfg->bottomScreenFilter.colorCurveCorrection,
         topScreenFilterGammaStrs[0], topScreenFilterGammaStrs[1], topScreenFilterGammaStrs[2],
         bottomScreenFilterGammaStrs[0], bottomScreenFilterGammaStrs[1], bottomScreenFilterGammaStrs[2],
         topScreenFilterContrastStrs[0], topScreenFilterContrastStrs[1], topScreenFilterContrastStrs[2],
@@ -688,9 +652,6 @@ static size_t saveLumaIniConfigToStr(char *out)
         (int)cfg->topScreenFilter.invert, (int)cfg->bottomScreenFilter.invert,
 
         cfg->autobootTwlTitleId, (int)cfg->autobootCtrAppmemtype,
-
-        forceAudioOutputStr,
-        cfg->volumeSliderOverride,
 
         (int)CONFIG(PATCHUNITINFO), (int)CONFIG(ENABLEDSIEXTFILTER),
         (int)CONFIG(DISABLEARM11EXCHANDLERS), (int)CONFIG(ENABLESAFEFIRMROSALINA)
@@ -726,6 +687,22 @@ static bool writeLumaIniConfig(void)
 
 // ===========================================================
 
+static u8 computeConfigMcuChecksum(const u8 *data)
+{
+    // Only the fields from lumaVersion onwards are checksummed
+    u8 checksum = 0;
+    for (u32 i = offsetof(CfgDataMcu, lumaVersion); i < sizeof(CfgDataMcu) - 1; i++)
+        checksum += data[i];
+    return ~checksum;
+}
+
+static void resetConfigMcu(void)
+{
+    memset(&configDataMcu, 0, sizeof(CfgDataMcu));
+    configDataMcu.volumeSliderOverride = MCUCFG_UNSET_PERCENTAGE_OVERRIDE;
+    configDataMcu.ledMasterBrightnessOverride = MCUCFG_UNSET_PERCENTAGE_OVERRIDE;
+}
+
 static void writeConfigMcu(void)
 {
     u8 data[sizeof(CfgDataMcu)];
@@ -739,10 +716,7 @@ static void writeConfigMcu(void)
     memcpy(data, &configDataMcu, sizeof(CfgDataMcu));
 
     // Fix checksum
-    u8 checksum = 0;
-    for (u32 i = 0; i < sizeof(CfgDataMcu) - 1; i++)
-        checksum += data[i];
-    checksum = ~checksum;
+    u8 checksum = computeConfigMcuChecksum(data);
     data[sizeof(CfgDataMcu) - 1] = checksum;
     configDataMcu.checksum = checksum;
 
@@ -760,15 +734,15 @@ static bool readConfigMcu(void)
     I2C_readRegBuf(I2C_DEV_MCU, 0x61, data, sizeof(CfgDataMcu));
     memcpy(&configDataMcu, data, sizeof(CfgDataMcu));
 
-    u8 checksum = 0;
-    for (u32 i = 0; i < sizeof(CfgDataMcu) - 1; i++)
-        checksum += data[i];
-    checksum = ~checksum;
+    u8 checksum = computeConfigMcuChecksum(data);
 
+    // Note: data written with the previous 6-byte layout (lumaVersion, bootCfg, reserved[2], checksum)
+    // is always rejected here, as lumaVersion now overlaps with the old bootCfg and reserved[0] fields
+    // (thus is < 0x100)
     if (checksum != configDataMcu.checksum || configDataMcu.lumaVersion < MAKE_LUMA_VERSION_MCU(10, 3, 0))
     {
         // Invalid data stored in MCU...
-        memset(&configDataMcu, 0, sizeof(CfgDataMcu));
+        resetConfigMcu();
         configData.bootConfig = 0;
         // Perform upgrade process (ignoring failures)
         doLumaUpgradeProcess();
@@ -776,6 +750,12 @@ static bool readConfigMcu(void)
 
         return false;
     }
+
+    // Sanitize non-checksummed fields
+    if ((configDataMcu.flags & MCUCFG_FLAGS_AUDIO_ROUTING_MASK) == MCUCFG_FLAGS_AUDIO_ROUTING_MASK)
+        configDataMcu.flags &= ~MCUCFG_FLAGS_AUDIO_ROUTING_MASK;
+    if (configDataMcu.volumeSliderOverrideStereoBalance < -100 || configDataMcu.volumeSliderOverrideStereoBalance > 100)
+        configDataMcu.volumeSliderOverrideStereoBalance = 0;
 
     if (configDataMcu.lumaVersion < curVer)
     {
@@ -802,7 +782,6 @@ bool readConfig(void)
         configData.formatVersionMinor = CONFIG_VERSIONMINOR;
         configData.config |= 1u << PATCHVERSTRING;
         configData.splashDurationMsec = 3000;
-        configData.volumeSliderOverride = -1;
         configData.hbldr3dsxTitleId = HBLDR_DEFAULT_3DSX_TID;
         configData.rosalinaMenuCombo = 1u << 9 | 1u << 7 | 1u << 2; // L+Start+Select
         configData.topScreenFilter.cct = 6500; // default temp, no-op
@@ -818,6 +797,10 @@ bool readConfig(void)
         ret = true;
 
     configData.bootConfig = configDataMcu.bootCfg;
+    configData.mcuConfigFlags = configDataMcu.flags;
+    configData.volumeSliderOverride = configDataMcu.volumeSliderOverride;
+    configData.volumeSliderOverrideStereoBalance = configDataMcu.volumeSliderOverrideStereoBalance;
+    configData.ledMasterBrightnessOverride = configDataMcu.ledMasterBrightnessOverride;
     oldConfig = configData;
 
     return ret;
@@ -980,7 +963,6 @@ void configMenu(bool oldPinStatus, u32 oldPinMode)
         { .visible = true },
         { .visible = ISN3DS },
         { .visible = true },
-        // { .visible = true }, audio rerouting, hidden
     };
 
     struct singleOption {

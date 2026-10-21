@@ -131,7 +131,6 @@ extern void* (*kAlloc)(FcramDescriptor *fcramDesc, u32 nbPages, u32 alignment, u
 typedef struct ScreenFiltersCfgData {
     u16 cct;
     bool invert;
-    u8 colorCurveCorrection;
     s64 gammaEnc[3];    // per-channel (R, G, B)
     s64 contrastEnc[3]; // per-channel (R, G, B)
 } ScreenFiltersCfgData;
@@ -150,7 +149,10 @@ typedef struct CfwInfo
     u16 configFormatVersionMajor, configFormatVersionMinor;
     u32 config, multiConfig, bootConfig;
     u32 splashDurationMsec;
-    s8 volumeSliderOverride;
+    u8 mcuConfigFlags;
+    u8 volumeSliderOverride;
+    s8 volumeSliderOverrideStereoBalance;
+    u8 ledMasterBrightnessOverride;
     u64 hbldr3dsxTitleId;
     u32 rosalinaMenuCombo;
     u32 pluginLoaderFlags;
