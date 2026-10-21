@@ -31,16 +31,19 @@
 
 extern Menu sysconfigMenu;
 extern bool isConnectionForced;
-extern s8 currVolumeSliderOverride;
 
 void SysConfigMenu_UpdateStatus(bool control);
+void SysConfigMenu_RestoreSettings(void);
+Result SysConfigMenu_ApplyAudioRouting(void);
 
-void SysConfigMenu_ToggleLEDs(void);
+void SysConfigMenu_SetLedMasterBrightnessOverride(void);
+void SysConfigMenu_SetAudioRoutingAuto(void);
+void SysConfigMenu_SetAudioRoutingHeadphones(void);
+void SysConfigMenu_SetAudioRoutingSpeakers(void);
 void SysConfigMenu_ToggleWireless(void);
 void SysConfigMenu_TogglePowerButton(void);
 void SysConfigMenu_ControlWifi(void);
 void SysConfigMenu_DisableForcedWifiConnection(void);
 void SysConfigMenu_ToggleCardIfPower(void);
-void SysConfigMenu_LoadConfig(void);
 void SysConfigMenu_AdjustVolume(void);
 void SysConfigMenu_ChangeScreenBrightness(void);

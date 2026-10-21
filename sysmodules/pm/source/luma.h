@@ -19,7 +19,6 @@ enum multiOptions
     PIN,
     NEWCPU,
     AUTOBOOTMODE,
-    FORCEAUDIOOUTPUT,
 };
 
 enum singleOptions

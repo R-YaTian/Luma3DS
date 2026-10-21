@@ -73,11 +73,27 @@ Menu miscellaneousMenu = {
         { "通过NTP服务同步时间和日期", METHOD, .method = &MiscellaneousMenu_UpdateTimeDateNtp },
         { "消除用户时间偏移", METHOD, .method = &MiscellaneousMenu_NullifyUserTimeOffset },
         { "转储DSP固件", METHOD, .method = &MiscellaneousMenu_DumpDspFirm },
+        { "切换温度显示: 摄氏温标", METHOD, .method = &MiscellaneousMenu_ToggleTemperatureUnit },
         {},
     }
 };
 
 int lastNtpTzOffset = 0;
+
+void MiscellaneousMenu_UpdateTemperatureUnitEntry(void)
+{
+    if (lumaMcuConfig.flags & MCUCFG_FLAG_TEMPERATURE_IN_FAHRENHEIT)
+        miscellaneousMenu.items[6].title = "切换温度显示: 华氏温标";
+    else
+        miscellaneousMenu.items[6].title = "切换温度显示: 摄氏温标";
+}
+
+void MiscellaneousMenu_ToggleTemperatureUnit(void)
+{
+    // Stored in MCU, saved immediately
+    LumaConfig_SetMcuConfigFlags(MCUCFG_FLAG_TEMPERATURE_IN_FAHRENHEIT, lumaMcuConfig.flags ^ MCUCFG_FLAG_TEMPERATURE_IN_FAHRENHEIT);
+    MiscellaneousMenu_UpdateTemperatureUnitEntry();
+}
 
 static inline bool compareTids(u64 tidA, u64 tidB)
 {

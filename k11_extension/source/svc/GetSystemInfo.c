@@ -74,7 +74,16 @@ Result GetSystemInfoHook(s64 *out, s32 type, s32 param)
                     *out = cfwInfo.splashDurationMsec;
                     break;
                 case 7:
-                    *out = (s64)cfwInfo.volumeSliderOverride;
+                    *out = cfwInfo.volumeSliderOverride;
+                    break;
+                case 8:
+                    *out = (s64)cfwInfo.volumeSliderOverrideStereoBalance;
+                    break;
+                case 9:
+                    *out = cfwInfo.ledMasterBrightnessOverride;
+                    break;
+                case 0xA:
+                    *out = cfwInfo.mcuConfigFlags;
                     break;
                 case 0x10:
                     *out = (s64)cfwInfo.autobootTwlTitleId;
@@ -117,12 +126,6 @@ Result GetSystemInfoHook(s64 *out, s32 type, s32 param)
                     break;
                 case 0x10C:
                     *out = (s64)cfwInfo.bottomScreenFilter.invert;
-                    break;
-                case 0x10D:
-                    *out = (s64)cfwInfo.topScreenFilter.colorCurveCorrection;
-                    break;
-                case 0x10E:
-                    *out = (s64)cfwInfo.bottomScreenFilter.colorCurveCorrection;
                     break;
                 case 0x110:
                 case 0x111:

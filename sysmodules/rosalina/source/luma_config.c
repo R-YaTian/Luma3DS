@@ -40,7 +40,6 @@ typedef struct CfgData {
 
     u32 config, multiConfig, bootConfig;
     u32 splashDurationMsec;
-    s8 volumeSliderOverride;
 
     u64 hbldr3dsxTitleId;
     u32 rosalinaMenuCombo;
@@ -55,6 +54,57 @@ typedef struct CfgData {
 } CfgData;
 
 bool saveSettingsRequest = false;
+LumaMcuConfig lumaMcuConfig = {
+    .volumeSliderOverride = PCT_OVERRIDE_UNSET,
+    .ledMasterBrightnessOverride = PCT_OVERRIDE_UNSET,
+};
+
+// Offset of LumaMcuConfig within the 200-byte MCU free register area (8 last bytes, non-checksummed data first)
+#define LUMA_MCU_CONFIG_FREE_REG_OFFSET (200 - 8)
+
+void LumaConfig_LoadMcuConfig(void)
+{
+    // Initial values provided by the bootloader (which reads them from the MCU)
+    s64 out = 0;
+    svcGetSystemInfo(&out, 0x10000, 7);
+    lumaMcuConfig.volumeSliderOverride = (u8)out;
+    svcGetSystemInfo(&out, 0x10000, 8);
+    lumaMcuConfig.volumeSliderOverrideStereoBalance = (s8)out;
+    svcGetSystemInfo(&out, 0x10000, 9);
+    lumaMcuConfig.ledMasterBrightnessOverride = (u8)out;
+    svcGetSystemInfo(&out, 0x10000, 0xA);
+    lumaMcuConfig.flags = (u8)out;
+}
+
+Result LumaConfig_SaveMcuConfig(void)
+{
+    // Select the free register index, then write the data, in a single I2C transaction (so that this
+    // doesn't race with other users of the free register area). This works because the register address
+    // is auto-incremented after the index is written (0x60 -> 0x61), but not past 0x61 (instead, the free
+    // register index is incremented)
+    u8 buf[1 + sizeof(LumaMcuConfig)];
+    buf[0] = LUMA_MCU_CONFIG_FREE_REG_OFFSET;
+    memcpy(buf + 1, &lumaMcuConfig, sizeof(LumaMcuConfig));
+
+    Result res = mcuHwcInit();
+    if (R_SUCCEEDED(res))
+    {
+        res = MCUHWC_WriteRegister(0x60, buf, sizeof(buf));
+        mcuHwcExit();
+    }
+
+    return res;
+}
+
+void LumaConfig_SetMcuConfigFlags(u8 mask, u8 value)
+{
+    u8 newFlags = (lumaMcuConfig.flags & ~mask) | (value & mask);
+    if (newFlags != lumaMcuConfig.flags)
+    {
+        lumaMcuConfig.flags = newFlags;
+        LumaConfig_SaveMcuConfig();
+    }
+}
 
 void LumaConfig_ConvertComboToString(char *out, u32 combo)
 {
@@ -94,7 +144,6 @@ static size_t LumaConfig_SaveLumaIniConfigToStr(char *out, const CfgData *cfg)
     const char *splashPosStr;
     const char *n3dsCpuStr;
     const char *autobootModeStr;
-    const char *forceAudioOutputStr;
 
     s64 outInfo;
     svcGetSystemInfo(&outInfo, 0x10000, 0);
@@ -123,12 +172,6 @@ static size_t LumaConfig_SaveLumaIniConfigToStr(char *out, const CfgData *cfg)
         default: case 0: autobootModeStr = "off"; break;
         case 1: autobootModeStr = "3ds"; break;
         case 2: autobootModeStr = "dsi"; break;
-    }
-
-    switch (MULTICONFIG(FORCEAUDIOOUTPUT)) {
-        default: case 0: forceAudioOutputStr = "off"; break;
-        case 1: forceAudioOutputStr = "headphones"; break;
-        case 2: forceAudioOutputStr = "speakers"; break;
     }
 
     if (GET_VERSION_REVISION(version) != 0) {
@@ -178,7 +221,6 @@ static size_t LumaConfig_SaveLumaIniConfigToStr(char *out, const CfgData *cfg)
         (int)cfg->ntpTzOffetMinutes,
 
         (int)cfg->topScreenFilter.cct, (int)cfg->bottomScreenFilter.cct,
-        (int)cfg->topScreenFilter.colorCurveCorrection, (int)cfg->bottomScreenFilter.colorCurveCorrection,
         topScreenFilterGammaStrs[0], topScreenFilterGammaStrs[1], topScreenFilterGammaStrs[2],
         bottomScreenFilterGammaStrs[0], bottomScreenFilterGammaStrs[1], bottomScreenFilterGammaStrs[2],
         topScreenFilterContrastStrs[0], topScreenFilterContrastStrs[1], topScreenFilterContrastStrs[2],
@@ -186,9 +228,6 @@ static size_t LumaConfig_SaveLumaIniConfigToStr(char *out, const CfgData *cfg)
         (int)cfg->topScreenFilter.invert, (int)cfg->bottomScreenFilter.invert,
 
         cfg->autobootTwlTitleId, (int)cfg->autobootCtrAppmemtype,
-
-        forceAudioOutputStr,
-        cfg->volumeSliderOverride,
 
         (int)CONFIG(PATCHUNITINFO), (int)CONFIG(ENABLEDSIEXTFILTER),
         (int)CONFIG(DISABLEARM11EXCHANDLERS), (int)CONFIG(ENABLESAFEFIRMROSALINA)
@@ -247,7 +286,6 @@ Result LumaConfig_SaveSettings(void)
     configData.multiConfig = multiConfig;
     configData.bootConfig = bootConfig;
     configData.splashDurationMsec = splashDurationMsec;
-    configData.volumeSliderOverride = currVolumeSliderOverride;
     configData.hbldr3dsxTitleId = Luma_SharedConfig->selected_hbldr_3dsx_tid;
     configData.rosalinaMenuCombo = menuCombo;
     configData.pluginLoaderFlags = PluginLoader__IsEnabled();

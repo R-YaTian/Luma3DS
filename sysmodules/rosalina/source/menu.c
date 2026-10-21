@@ -557,7 +557,17 @@ static void menuDraw(Menu *menu, s32 selected, s32 pageStartIndex)
         u32 voltageFrac = (u32)(batteryVoltage * 100.0f) % 100u;
         u32 percentageInt = (u32)batteryPercentage;
         u32 percentageFrac = (u32)(batteryPercentage * 10.0f) % 10u;
-        Draw_DrawFormattedString(16, SCREEN_BOT_HEIGHT - 16, COLOR_WHITE, "温度：%02hhu°C  电压：%lu.%02luV  电量：%lu.%lu%%", batteryTemperature,
+
+        // Temperature is an integer amount of degrees Celsius. 9C/5 has a fractional part in {0, 0.2, ..., 0.8},
+        // so adding 2/5 before truncating rounds to nearest (no ties)
+        bool fahrenheit = (lumaMcuConfig.flags & MCUCFG_FLAG_TEMPERATURE_IN_FAHRENHEIT) != 0;
+        int temperature = fahrenheit ? (9 * batteryTemperature + 2) / 5 + 32 : batteryTemperature;
+
+        // Temperature is padded to 3 chars in both units (F >= 32, so at least 2 digits) so that the string length
+        // doesn't change when the unit is toggled or when going above 99F
+        Draw_DrawFormattedString(16, SCREEN_BOT_HEIGHT - 16, COLOR_WHITE, fahrenheit ?
+                        "温度：%3d°F  电压：%lu.%02luV  电量：%lu.%lu%%" :
+                        "温度：%02d°C  电压：%lu.%02luV  电量：%lu.%lu%%", temperature,
                         voltageInt, voltageFrac,
                         percentageInt, percentageFrac);
     }
