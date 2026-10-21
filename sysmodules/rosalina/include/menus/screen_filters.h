@@ -30,13 +30,15 @@
 
 extern Menu screenFiltersMenu;
 
+#define SCREEN_FILTER_MAX_GAMMA     4.0f
+#define SCREEN_FILTER_MAX_CONTRAST  8.0f // contrast above 1 is a gain: channel values reaching 255 are clipped
+
 typedef struct ScreenFilter {
     u16 cct;
     bool invert;
     u8 colorCurveCorrection;
-    float gamma;
-    float contrast;
-    float brightness;
+    float gamma[3];     // per-channel (R, G, B) gamma
+    float contrast[3];  // per-channel (R, G, B) contrast
 } ScreenFilter;
 
 extern ScreenFilter topScreenFilter;

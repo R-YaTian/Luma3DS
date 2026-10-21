@@ -94,13 +94,10 @@ Result GetSystemInfoHook(s64 *out, s32 type, s32 param)
                     *out = (s64)cfwInfo.ntpTzOffetMinutes;
                     break;
                 case 0x104:
-                    *out = cfwInfo.topScreenFilter.gammaEnc;
+                    *out = cfwInfo.topScreenFilter.gammaEnc[0];
                     break;
                 case 0x105:
-                    *out = cfwInfo.topScreenFilter.contrastEnc;
-                    break;
-                case 0x106:
-                    *out = cfwInfo.topScreenFilter.brightnessEnc;
+                    *out = cfwInfo.topScreenFilter.contrastEnc[0];
                     break;
                 case 0x107:
                     *out = (s64)cfwInfo.topScreenFilter.invert;
@@ -109,13 +106,10 @@ Result GetSystemInfoHook(s64 *out, s32 type, s32 param)
                     *out = cfwInfo.bottomScreenFilter.cct;
                     break;
                 case 0x109:
-                    *out = cfwInfo.bottomScreenFilter.gammaEnc;
+                    *out = cfwInfo.bottomScreenFilter.gammaEnc[0];
                     break;
                 case 0x10A:
-                    *out = cfwInfo.bottomScreenFilter.contrastEnc;
-                    break;
-                case 0x10B:
-                    *out = cfwInfo.bottomScreenFilter.brightnessEnc;
+                    *out = cfwInfo.bottomScreenFilter.contrastEnc[0];
                     break;
                 case 0x10C:
                     *out = (s64)cfwInfo.bottomScreenFilter.invert;
@@ -125,6 +119,22 @@ Result GetSystemInfoHook(s64 *out, s32 type, s32 param)
                     break;
                 case 0x10E:
                     *out = (s64)cfwInfo.bottomScreenFilter.colorCurveCorrection;
+                    break;
+                case 0x110:
+                case 0x111:
+                    *out = cfwInfo.topScreenFilter.gammaEnc[1 + param - 0x110];
+                    break;
+                case 0x112:
+                case 0x113:
+                    *out = cfwInfo.topScreenFilter.contrastEnc[1 + param - 0x112];
+                    break;
+                case 0x114:
+                case 0x115:
+                    *out = cfwInfo.bottomScreenFilter.gammaEnc[1 + param - 0x114];
+                    break;
+                case 0x116:
+                case 0x117:
+                    *out = cfwInfo.bottomScreenFilter.contrastEnc[1 + param - 0x116];
                     break;
                 case 0x180:
                     *out = cfwInfo.pluginLoaderFlags;

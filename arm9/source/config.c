@@ -337,6 +337,22 @@ static int encodedFloatToString(char *out, s64 val)
     return n;
 }
 
+// e.g. "screen_filters_top_gamma_g" with prefix "screen_filters_top_gamma_" -> 1
+static int getScreenFilterChannelFromOptionName(const char *name, const char *prefix)
+{
+    size_t n = strlen(prefix);
+    if (strncmp(name, prefix, n) != 0 || name[n] == '\0' || name[n + 1] != '\0') {
+        return -1;
+    }
+
+    switch (name[n]) {
+        case 'r': return 0;
+        case 'g': return 1;
+        case 'b': return 2;
+        default: return -1;
+    }
+}
+
 static bool hasIniParseError = false;
 static int iniParseErrorLine = 0;
 
@@ -476,25 +492,21 @@ static int configIniHandler(void* user, const char* section, const char* name, c
             CHECK_PARSE_OPTION(-1);
         }
     } else if (strcmp(section, "screen_filters") == 0) {
+        int ch;
         if (strcmp(name, "screen_filters_top_cct") == 0) {
             s64 opt;
             CHECK_PARSE_OPTION(parseDecIntOption(&opt, value, 1000, 25100));
             cfg->topScreenFilter.cct = (u32)opt;
             return 1;
-        } else if (strcmp(name, "screen_filters_top_gamma") == 0) {
+        } else if ((ch = getScreenFilterChannelFromOptionName(name, "screen_filters_top_gamma_")) >= 0) {
+            s64 opt;
+            CHECK_PARSE_OPTION(parseDecFloatOption(&opt, value, 0, 4 * FLOAT_CONV_MULT));
+            cfg->topScreenFilter.gammaEnc[ch] = opt;
+            return 1;
+        } else if ((ch = getScreenFilterChannelFromOptionName(name, "screen_filters_top_contrast_")) >= 0) {
             s64 opt;
             CHECK_PARSE_OPTION(parseDecFloatOption(&opt, value, 0, 8 * FLOAT_CONV_MULT));
-            cfg->topScreenFilter.gammaEnc = opt;
-            return 1;
-        } else if (strcmp(name, "screen_filters_top_contrast") == 0) {
-            s64 opt;
-            CHECK_PARSE_OPTION(parseDecFloatOption(&opt, value, 0, 255 * FLOAT_CONV_MULT));
-            cfg->topScreenFilter.contrastEnc = opt;
-            return 1;
-        } else if (strcmp(name, "screen_filters_top_brightness") == 0) {
-            s64 opt;
-            CHECK_PARSE_OPTION(parseDecFloatOption(&opt, value, -1 * FLOAT_CONV_MULT, 1 * FLOAT_CONV_MULT));
-            cfg->topScreenFilter.brightnessEnc = opt;
+            cfg->topScreenFilter.contrastEnc[ch] = opt;
             return 1;
         } else if (strcmp(name, "screen_filters_top_invert") == 0) {
             bool opt;
@@ -511,20 +523,15 @@ static int configIniHandler(void* user, const char* section, const char* name, c
             CHECK_PARSE_OPTION(parseDecIntOption(&opt, value, 1000, 25100));
             cfg->bottomScreenFilter.cct = (u32)opt;
             return 1;
-        } else if (strcmp(name, "screen_filters_bot_gamma") == 0) {
+        } else if ((ch = getScreenFilterChannelFromOptionName(name, "screen_filters_bot_gamma_")) >= 0) {
+            s64 opt;
+            CHECK_PARSE_OPTION(parseDecFloatOption(&opt, value, 0, 4 * FLOAT_CONV_MULT));
+            cfg->bottomScreenFilter.gammaEnc[ch] = opt;
+            return 1;
+        } else if ((ch = getScreenFilterChannelFromOptionName(name, "screen_filters_bot_contrast_")) >= 0) {
             s64 opt;
             CHECK_PARSE_OPTION(parseDecFloatOption(&opt, value, 0, 8 * FLOAT_CONV_MULT));
-            cfg->bottomScreenFilter.gammaEnc = opt;
-            return 1;
-        } else if (strcmp(name, "screen_filters_bot_contrast") == 0) {
-            s64 opt;
-            CHECK_PARSE_OPTION(parseDecFloatOption(&opt, value, 0, 255 * FLOAT_CONV_MULT));
-            cfg->bottomScreenFilter.contrastEnc = opt;
-            return 1;
-        } else if (strcmp(name, "screen_filters_bot_brightness") == 0) {
-            s64 opt;
-            CHECK_PARSE_OPTION(parseDecFloatOption(&opt, value, -1 * FLOAT_CONV_MULT, 1 * FLOAT_CONV_MULT));
-            cfg->bottomScreenFilter.brightnessEnc = opt;
+            cfg->bottomScreenFilter.contrastEnc[ch] = opt;
             return 1;
         } else if (strcmp(name, "screen_filters_bot_invert") == 0) {
             bool opt;
@@ -644,19 +651,16 @@ static size_t saveLumaIniConfigToStr(char *out)
     static const int pinOptionToDigits[] = { 0, 4, 6, 8 };
     int pinNumDigits = pinOptionToDigits[MULTICONFIG(PIN)];
 
-    char topScreenFilterGammaStr[32];
-    char topScreenFilterContrastStr[32];
-    char topScreenFilterBrightnessStr[32];
-    encodedFloatToString(topScreenFilterGammaStr, cfg->topScreenFilter.gammaEnc);
-    encodedFloatToString(topScreenFilterContrastStr, cfg->topScreenFilter.contrastEnc);
-    encodedFloatToString(topScreenFilterBrightnessStr, cfg->topScreenFilter.brightnessEnc);
-
-    char bottomScreenFilterGammaStr[32];
-    char bottomScreenFilterContrastStr[32];
-    char bottomScreenFilterBrightnessStr[32];
-    encodedFloatToString(bottomScreenFilterGammaStr, cfg->bottomScreenFilter.gammaEnc);
-    encodedFloatToString(bottomScreenFilterContrastStr, cfg->bottomScreenFilter.contrastEnc);
-    encodedFloatToString(bottomScreenFilterBrightnessStr, cfg->bottomScreenFilter.brightnessEnc);
+    char topScreenFilterGammaStrs[3][32];
+    char topScreenFilterContrastStrs[3][32];
+    char bottomScreenFilterGammaStrs[3][32];
+    char bottomScreenFilterContrastStrs[3][32];
+    for (u32 ch = 0; ch < 3; ch++) {
+        encodedFloatToString(topScreenFilterGammaStrs[ch], cfg->topScreenFilter.gammaEnc[ch]);
+        encodedFloatToString(topScreenFilterContrastStrs[ch], cfg->topScreenFilter.contrastEnc[ch]);
+        encodedFloatToString(bottomScreenFilterGammaStrs[ch], cfg->bottomScreenFilter.gammaEnc[ch]);
+        encodedFloatToString(bottomScreenFilterContrastStrs[ch], cfg->bottomScreenFilter.contrastEnc[ch]);
+    }
 
     int n = sprintf(
         out, (const char *)config_template_ini,
@@ -677,9 +681,10 @@ static size_t saveLumaIniConfigToStr(char *out)
 
         (int)cfg->topScreenFilter.cct, (int)cfg->bottomScreenFilter.cct,
         (int)cfg->topScreenFilter.colorCurveCorrection, (int)cfg->bottomScreenFilter.colorCurveCorrection,
-        topScreenFilterGammaStr, bottomScreenFilterGammaStr,
-        topScreenFilterContrastStr, bottomScreenFilterContrastStr,
-        topScreenFilterBrightnessStr, bottomScreenFilterBrightnessStr,
+        topScreenFilterGammaStrs[0], topScreenFilterGammaStrs[1], topScreenFilterGammaStrs[2],
+        bottomScreenFilterGammaStrs[0], bottomScreenFilterGammaStrs[1], bottomScreenFilterGammaStrs[2],
+        topScreenFilterContrastStrs[0], topScreenFilterContrastStrs[1], topScreenFilterContrastStrs[2],
+        bottomScreenFilterContrastStrs[0], bottomScreenFilterContrastStrs[1], bottomScreenFilterContrastStrs[2],
         (int)cfg->topScreenFilter.invert, (int)cfg->bottomScreenFilter.invert,
 
         cfg->autobootTwlTitleId, (int)cfg->autobootCtrAppmemtype,
@@ -801,8 +806,10 @@ bool readConfig(void)
         configData.hbldr3dsxTitleId = HBLDR_DEFAULT_3DSX_TID;
         configData.rosalinaMenuCombo = 1u << 9 | 1u << 7 | 1u << 2; // L+Start+Select
         configData.topScreenFilter.cct = 6500; // default temp, no-op
-        configData.topScreenFilter.gammaEnc = 1 * FLOAT_CONV_MULT; // 1.0f
-        configData.topScreenFilter.contrastEnc = 1 * FLOAT_CONV_MULT; // 1.0f
+        for (u32 ch = 0; ch < 3; ch++) {
+            configData.topScreenFilter.gammaEnc[ch] = 1 * FLOAT_CONV_MULT; // 1.0f
+            configData.topScreenFilter.contrastEnc[ch] = 1 * FLOAT_CONV_MULT; // 1.0f
+        }
         configData.bottomScreenFilter = configData.topScreenFilter;
         configData.autobootTwlTitleId = AUTOBOOT_DEFAULT_TWL_TID;
         ret = false;
