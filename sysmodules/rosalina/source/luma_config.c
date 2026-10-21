@@ -148,19 +148,17 @@ static size_t LumaConfig_SaveLumaIniConfigToStr(char *out, const CfgData *cfg)
     static const int pinOptionToDigits[] = { 0, 4, 6, 8 };
     int pinNumDigits = pinOptionToDigits[MULTICONFIG(PIN)];
 
-    char topScreenFilterGammaStr[32];
-    char topScreenFilterContrastStr[32];
-    char topScreenFilterBrightnessStr[32];
-    floatToString(topScreenFilterGammaStr, cfg->topScreenFilter.gamma, 6, false);
-    floatToString(topScreenFilterContrastStr, cfg->topScreenFilter.contrast, 6, false);
-    floatToString(topScreenFilterBrightnessStr, cfg->topScreenFilter.brightness, 6, false);
-
-    char bottomScreenFilterGammaStr[32];
-    char bottomScreenFilterContrastStr[32];
-    char bottomScreenFilterBrightnessStr[32];
-    floatToString(bottomScreenFilterGammaStr, cfg->bottomScreenFilter.gamma, 6, false);
-    floatToString(bottomScreenFilterContrastStr, cfg->bottomScreenFilter.contrast, 6, false);
-    floatToString(bottomScreenFilterBrightnessStr, cfg->bottomScreenFilter.brightness, 6, false);
+    char topScreenFilterGammaStrs[3][32];
+    char topScreenFilterContrastStrs[3][32];
+    char bottomScreenFilterGammaStrs[3][32];
+    char bottomScreenFilterContrastStrs[3][32];
+    for (u32 ch = 0; ch < 3; ch++)
+    {
+        floatToString(topScreenFilterGammaStrs[ch], cfg->topScreenFilter.gamma[ch], 6, false);
+        floatToString(topScreenFilterContrastStrs[ch], cfg->topScreenFilter.contrast[ch], 6, false);
+        floatToString(bottomScreenFilterGammaStrs[ch], cfg->bottomScreenFilter.gamma[ch], 6, false);
+        floatToString(bottomScreenFilterContrastStrs[ch], cfg->bottomScreenFilter.contrast[ch], 6, false);
+    }
 
     int n = sprintf(
         out, (const char *)config_template_ini,
@@ -181,9 +179,10 @@ static size_t LumaConfig_SaveLumaIniConfigToStr(char *out, const CfgData *cfg)
 
         (int)cfg->topScreenFilter.cct, (int)cfg->bottomScreenFilter.cct,
         (int)cfg->topScreenFilter.colorCurveCorrection, (int)cfg->bottomScreenFilter.colorCurveCorrection,
-        topScreenFilterGammaStr, bottomScreenFilterGammaStr,
-        topScreenFilterContrastStr, bottomScreenFilterContrastStr,
-        topScreenFilterBrightnessStr, bottomScreenFilterBrightnessStr,
+        topScreenFilterGammaStrs[0], topScreenFilterGammaStrs[1], topScreenFilterGammaStrs[2],
+        bottomScreenFilterGammaStrs[0], bottomScreenFilterGammaStrs[1], bottomScreenFilterGammaStrs[2],
+        topScreenFilterContrastStrs[0], topScreenFilterContrastStrs[1], topScreenFilterContrastStrs[2],
+        bottomScreenFilterContrastStrs[0], bottomScreenFilterContrastStrs[1], bottomScreenFilterContrastStrs[2],
         (int)cfg->topScreenFilter.invert, (int)cfg->bottomScreenFilter.invert,
 
         cfg->autobootTwlTitleId, (int)cfg->autobootCtrAppmemtype,

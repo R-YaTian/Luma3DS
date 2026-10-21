@@ -65,9 +65,8 @@ typedef struct ScreenFiltersCfgData {
     u16 cct;
     bool invert;
     u8 colorCurveCorrection;
-    s64 gammaEnc;
-    s64 contrastEnc;
-    s64 brightnessEnc;
+    s64 gammaEnc[3];    // per-channel (R, G, B)
+    s64 contrastEnc[3]; // per-channel (R, G, B)
 } ScreenFiltersCfgData;
 
 typedef struct CfgData {
