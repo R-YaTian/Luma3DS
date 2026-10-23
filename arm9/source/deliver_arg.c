@@ -131,6 +131,14 @@ bool isTwlToCtrLaunch(void)
     }
 }
 
+typedef struct HMSysMenuArg {
+    u32 kind;               // what HOME Menu should do (not a bitmask)
+    u32 sourceUid;          // source: unshifted unique ID, e.g. 0x98 = HOME Menu (EUR)
+    u64 targetTid;          // title to start
+    u32 targetMediaType;    // 0 NAND, 1 SD, 2 gamecard
+    s32 parental3dPolicy;   // 1 grant 3D exemption, 0 clear it, -1 keep as-is
+} HMSysMenuArg;
+
 static bool configureHomebrewAutobootCtr(u8 *deliverArg)
 {
     static const u8 appmemtypesO3ds[] = { 0, 2, 3, 4, 5 };
@@ -149,11 +157,26 @@ static bool configureHomebrewAutobootCtr(u8 *deliverArg)
     // Determine whether to load from the SD card or from NAND. We don't support gamecards for this
     u32 category = (hbldrTid >> 32) & 0xFFFF;
     bool isSdApp = (category & 0x10) == 0 && category != 1; // not a system app nor a DLP child
-    *(u64 *)(deliverArg + 0x440) = hbldrTid;
-    *(u64 *)(deliverArg + 0x448) = isSdApp ? 1 : 0;
 
-    // Tell NS to run the title, and that it's not a title jump from legacy mode
-    *(u32 *)(deliverArg + 0x460) = (0 << 1) | (1 << 0);
+    if (!configData.autobootCtrUseNs)
+    {
+        // HOME Menu self-reboot path
+        HMSysMenuArg *hm = (HMSysMenuArg *)(deliverArg + 0x500);
+        hm->kind = 3;
+        hm->sourceUid = 0x98; // simulate source = HOME Menu
+        hm->targetTid = hbldrTid;
+        hm->targetMediaType = hm->targetTid == 0 ? 2 : (isSdApp ? 1 : 0);
+        hm->parental3dPolicy = -1;
+    }
+    else
+    {
+        // NS auto-launch path that does not involve starting HOME Menu
+        *(u64 *)(deliverArg + 0x440) = hbldrTid;
+        *(u64 *)(deliverArg + 0x448) = isSdApp ? 1 : 0;
+
+        // Tell NS to run the title, and that it's not a title jump from legacy mode
+        *(u32 *)(deliverArg + 0x460) = (0 << 1) | (1 << 0);
+    }
 
     // Whenever power button is held long enough ("force shutdown"), mcu sysmodule
     // stores a flag in free reg 0. It will clear it next boot.
