@@ -767,11 +767,28 @@ static bool readConfigMcu(void)
     return true;
 }
 
+static void applyLedMasterBrightnessOverride(void)
+{
+    // We deliberately leave the POWER LED setting as "auto" instead of "off" so that the red POWER LED appears
+    // regardless of setting. Note that the red POWER LED is not dimmable.
+
+    u8 override = configDataMcu.ledMasterBrightnessOverride;
+    u8 pct = override & 0x7F;
+
+    // Only touch the MCU if the override is enabled, set, and not the default (100%)
+    if ((override & 0x80) != 0 || pct >= 100)
+        return;
+
+    // Round to nearest integer, same as Rosalina
+    I2C_writeReg(I2C_DEV_MCU, 0x28, (255 * pct + 50) / 100);
+}
+
 bool readConfig(void)
 {
     bool retMcu, ret;
 
     retMcu = readConfigMcu();
+    applyLedMasterBrightnessOverride();
     ret = readLumaIniConfig();
     if(!retMcu || !ret ||
        configData.formatVersionMajor != CONFIG_VERSIONMAJOR ||
