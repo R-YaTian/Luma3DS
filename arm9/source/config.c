@@ -549,6 +549,11 @@ static int configIniHandler(void* user, const char* section, const char* name, c
             CHECK_PARSE_OPTION(parseDecIntOption(&opt, value, 0, 4));
             cfg->autobootCtrAppmemtype = (u8)opt;
             return 1;
+        } else if (strcmp(name, "autoboot_3ds_use_ns") == 0) {
+            bool opt;
+            CHECK_PARSE_OPTION(parseBoolOption(&opt, value));
+            cfg->autobootCtrUseNs = opt;
+            return 1;
         } else {
             CHECK_PARSE_OPTION(-1);
         }
@@ -651,7 +656,7 @@ static size_t saveLumaIniConfigToStr(char *out)
         bottomScreenFilterContrastStrs[0], bottomScreenFilterContrastStrs[1], bottomScreenFilterContrastStrs[2],
         (int)cfg->topScreenFilter.invert, (int)cfg->bottomScreenFilter.invert,
 
-        cfg->autobootTwlTitleId, (int)cfg->autobootCtrAppmemtype,
+        cfg->autobootTwlTitleId, (int)cfg->autobootCtrAppmemtype, (int)cfg->autobootCtrUseNs,
 
         (int)CONFIG(PATCHUNITINFO), (int)CONFIG(ENABLEDSIEXTFILTER),
         (int)CONFIG(DISABLEARM11EXCHANDLERS), (int)CONFIG(ENABLESAFEFIRMROSALINA)

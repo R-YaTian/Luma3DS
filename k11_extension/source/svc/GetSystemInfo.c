@@ -87,6 +87,9 @@ Result GetSystemInfoHook(s64 *out, s32 type, s32 param)
                 case 0x11:
                     *out = cfwInfo.autobootCtrAppmemtype;
                     break;
+                case 0x12:
+                    *out = cfwInfo.autobootCtrUseNs;
+                    break;
                 case 0x80:
                     *out = fcramDescriptor->appRegion.regionSizeInBytes;
                     break;

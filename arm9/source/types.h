@@ -90,6 +90,7 @@ typedef struct CfgData {
 
     u64 autobootTwlTitleId;
     u8 autobootCtrAppmemtype;
+    bool autobootCtrUseNs;
 } CfgData;
 
 // Stored at the end of the MCU free register area.

@@ -51,6 +51,7 @@ typedef struct CfgData {
 
     u64 autobootTwlTitleId;
     u8 autobootCtrAppmemtype;
+    bool autobootCtrUseNs;
 } CfgData;
 
 bool saveSettingsRequest = false;
@@ -227,7 +228,7 @@ static size_t LumaConfig_SaveLumaIniConfigToStr(char *out, const CfgData *cfg)
         bottomScreenFilterContrastStrs[0], bottomScreenFilterContrastStrs[1], bottomScreenFilterContrastStrs[2],
         (int)cfg->topScreenFilter.invert, (int)cfg->bottomScreenFilter.invert,
 
-        cfg->autobootTwlTitleId, (int)cfg->autobootCtrAppmemtype,
+        cfg->autobootTwlTitleId, (int)cfg->autobootCtrAppmemtype, (int)cfg->autobootCtrUseNs,
 
         (int)CONFIG(PATCHUNITINFO), (int)CONFIG(ENABLEDSIEXTFILTER),
         (int)CONFIG(DISABLEARM11EXCHANDLERS), (int)CONFIG(ENABLESAFEFIRMROSALINA)
@@ -256,6 +257,7 @@ Result LumaConfig_SaveSettings(void)
     u32 splashDurationMsec;
 
     u8 autobootCtrAppmemtype;
+    bool autobootCtrUseNs;
     u64 autobootTwlTitleId;
 
     s64 out;
@@ -276,6 +278,8 @@ Result LumaConfig_SaveSettings(void)
     autobootTwlTitleId = (u64)out;
     svcGetSystemInfo(&out, 0x10000, 0x11);
     autobootCtrAppmemtype = (u8)out;
+    svcGetSystemInfo(&out, 0x10000, 0x12);
+    autobootCtrUseNs = (bool)out;
 
     svcGetSystemInfo(&out, 0x10000, 0x203);
     isSdMode = (bool)out;
@@ -294,6 +298,7 @@ Result LumaConfig_SaveSettings(void)
     configData.bottomScreenFilter = bottomScreenFilter;
     configData.autobootTwlTitleId = autobootTwlTitleId;
     configData.autobootCtrAppmemtype = autobootCtrAppmemtype;
+    configData.autobootCtrUseNs = autobootCtrUseNs;
 
     size_t n = LumaConfig_SaveLumaIniConfigToStr(inibuf, &configData);
 
