@@ -86,6 +86,9 @@ static void SysConfigMenu_SetLedMasterBrightnessOverrideValue(u8 override)
         return;
 
     lumaMcuConfig.ledMasterBrightnessOverride = override;
+    // Let kernel know for MCURTC interception (to prevent PTM from setting
+    // pattern and brightness if we set override to 0%)
+    svcKernelSetState(0x10008, override);
     SysConfigMenu_ApplyLedMasterBrightnessOverride();
     LumaConfig_SaveMcuConfig();
 }
