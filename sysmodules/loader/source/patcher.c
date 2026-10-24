@@ -266,6 +266,74 @@ static inline bool findLayeredFsPayloadOffset(u8 *code, u32 size, u32 roSize, u3
     return *payloadOffset != 0 && *pathOffset != 0;
 }
 
+typedef struct IpsReader
+{
+    IFile *file;
+    u8 *buf;
+    u32 pos;
+    u32 len;
+    bool eof;
+} IpsReader;
+
+// FS reads are slow when the destination isn't 4-byte aligned and when they are small,
+// so buffer the file and only ever issue reads of whole sectors at sector-aligned file offsets
+#define IPS_SECTOR_SIZE 0x200
+#define IPS_BUFFER_SIZE (2 * IPS_SECTOR_SIZE)
+
+static alignas(32) u8 ipsBuffer[IPS_BUFFER_SIZE];
+
+static bool ipsReaderFill(IpsReader *reader)
+{
+    u64 total;
+
+    reader->pos = 0;
+    reader->len = 0;
+
+    if(reader->eof || R_FAILED(IFile_Read(reader->file, &total, reader->buf, IPS_BUFFER_SIZE)))
+        return false;
+
+    reader->len = (u32)total;
+    reader->eof = total != IPS_BUFFER_SIZE;
+
+    return total != 0;
+}
+
+static bool ipsRead(IpsReader *reader, void *dst, u32 len)
+{
+    u8 *out = (u8 *)dst;
+
+    while(len != 0)
+    {
+        if(reader->pos == reader->len)
+        {
+            // The buffer is drained and the file position is sector-aligned: read large chunks directly when possible
+            if(!reader->eof && len >= IPS_SECTOR_SIZE && ((u32)out & 3) == 0)
+            {
+                u32 directLen = len & ~(IPS_SECTOR_SIZE - 1);
+                u64 total;
+
+                if(R_FAILED(IFile_Read(reader->file, &total, out, directLen)) || total != directLen) return false;
+
+                out += directLen;
+                len -= directLen;
+                continue;
+            }
+
+            if(!ipsReaderFill(reader)) return false;
+        }
+
+        u32 chunk = reader->len - reader->pos;
+        if(chunk > len) chunk = len;
+
+        memcpy(out, reader->buf + reader->pos, chunk);
+        reader->pos += chunk;
+        out += chunk;
+        len -= chunk;
+    }
+
+    return true;
+}
+
 static inline bool applyCodeIpsPatch(u64 progId, u8 *code, u32 size)
 {
     /* Here we look for "/luma/titles/[u64 titleID in hex, uppercase]/code.ips"
@@ -290,11 +358,11 @@ static inline bool applyCodeIpsPatch(u64 progId, u8 *code, u32 size)
 
     bool ret = false;
     u8 buffer[5];
-    u64 total;
+    IpsReader reader = { .file = &file, .buf = ipsBuffer, .pos = 0, .len = 0, .eof = false };
 
-    if(R_FAILED(IFile_Read(&file, &total, buffer, 5)) || total != 5 || memcmp(buffer, "PATCH", 5) != 0) goto exit;
+    if(!ipsRead(&reader, buffer, 5) || memcmp(buffer, "PATCH", 5) != 0) goto exit;
 
-    while(R_SUCCEEDED(IFile_Read(&file, &total, buffer, 3)) && total == 3)
+    while(ipsRead(&reader, buffer, 3))
     {
         if(memcmp(buffer, "EOF", 3) == 0)
         {
@@ -304,29 +372,26 @@ static inline bool applyCodeIpsPatch(u64 progId, u8 *code, u32 size)
 
         u32 offset = (buffer[0] << 16) | (buffer[1] << 8) | buffer[2];
 
-        if(R_FAILED(IFile_Read(&file, &total, buffer, 2)) || total != 2) break;
+        if(!ipsRead(&reader, buffer, 2)) break;
 
         u32 patchSize = (buffer[0] << 8) | buffer[1];
 
         if(!patchSize)
         {
-            if(R_FAILED(IFile_Read(&file, &total, buffer, 2)) || total != 2) break;
+            if(!ipsRead(&reader, buffer, 3)) break;
 
             u32 rleSize = (buffer[0] << 8) | buffer[1];
 
             if(offset + rleSize > size) break;
 
-            if(R_FAILED(IFile_Read(&file, &total, buffer, 1)) || total != 1) break;
-
-            for(u32 i = 0; i < rleSize; i++)
-                code[offset + i] = buffer[0];
+            memset(code + offset, buffer[2], rleSize);
 
             continue;
         }
 
         if(offset + patchSize > size) break;
 
-        if(R_FAILED(IFile_Read(&file, &total, code + offset, patchSize)) || total != patchSize) break;
+        if(!ipsRead(&reader, code + offset, patchSize)) break;
     }
 
 exit:

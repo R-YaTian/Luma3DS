@@ -57,7 +57,7 @@ COMMON_FLAGS =\
 		$(DEFINES) \
 		$(INCLUDE)
 
-CFLAGS		:= -std=gnu11 $(COMMON_FLAGS)
+CFLAGS		:= -std=gnu23 $(COMMON_FLAGS)
 
 CXXFLAGS	:= -fno-rtti -fno-exceptions -std=gnu++17 $(COMMON_FLAGS)
 
