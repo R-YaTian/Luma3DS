@@ -44,8 +44,8 @@ enum singleOptions
 extern u32 config, multiConfig, bootConfig;
 extern bool isN3DS, isSdMode, nextGamePatchDisabled, isLumaWithKext;
 
-void patchCode(u64 progId, u16 progVer, u8 *code, u32 size, u32 textSize, u32 roSize, u32 dataSize, u32 roAddress, u32 dataAddress);
-bool loadTitleCodeSection(u64 progId, u8 *code, u32 size);
+void patchCode(u8 *code, u32 size, u32 codeSize, u64 progId, u16 progVer, u32 textSize, u32 roSize, u32 dataSize, u32 roAddress, u32 dataAddress);
+bool loadTitleCodeSection(u8 *outCode, u32 *outSize, u32 maxSize, u64 progId);
 bool loadTitleExheaderInfo(u64 progId, ExHeader_Info *exheaderInfo);
 
 Result openSysmoduleCxi(IFile *outFile, u64 progId);

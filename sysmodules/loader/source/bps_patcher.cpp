@@ -243,7 +243,7 @@ public:
     u32 m_size;
 };
 
-static inline bool ApplyCodeBpsPatch(u64 prog_id, u8 *code, u32 size)
+static inline bool ApplyCodeBpsPatch(u8 *code, u32 size, u64 prog_id)
 {
     bool isSysmodule = (prog_id >> 32) == 0x00040130;
     util::File patch_file;
@@ -291,8 +291,8 @@ static inline bool ApplyCodeBpsPatch(u64 prog_id, u8 *code, u32 size)
 
 extern "C"
 {
-    bool patcherApplyCodeBpsPatch(u64 progId, u8 *code, u32 size)
+    bool patcherApplyCodeBpsPatch(u8 *code, u32 size, u64 progId)
     {
-        return patcher::ApplyCodeBpsPatch(progId, code, size);
+        return patcher::ApplyCodeBpsPatch(code, size, progId);
     }
 }
