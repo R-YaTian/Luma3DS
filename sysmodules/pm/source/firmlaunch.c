@@ -4,6 +4,7 @@
 #include "termination.h"
 #include "task_runner.h"
 #include "util.h"
+#include "luma.h"
 
 static void *const g_firmlaunchParameters = (void *)0x12000000;
 
@@ -26,6 +27,9 @@ Result SetFirmlaunchParams(const void *params, size_t size)
     if (size < 0x1000) {
         memset(g_firmlaunchParameters + size, 0, 0x1000 - size);
     }
+
+    injectLumaReservedFirmlaunchParams(g_firmlaunchParameters);
+
     return 0;
 }
 
