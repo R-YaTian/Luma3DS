@@ -132,6 +132,7 @@ public:
         const Bps::Number metadata_size = m_patch.ReadNumber();
         if(source_size > m_source.size() || target_size > m_target.size() || metadata_size != 0)
             return false;
+        m_target_size = target_size;
 
         const std::size_t command_start_offset = m_patch.Tell();
         const std::size_t command_end_offset = m_patch.size() - FooterSize;
@@ -154,6 +155,8 @@ public:
 
         return crc32(m_target.data(), target_size) == target_crc32;
     }
+
+    Number TargetSize() const { return m_target_size; }
 
 private:
     bool HandleCommand()
@@ -211,6 +214,7 @@ private:
 
     std::size_t m_source_relative_offset = 0;
     std::size_t m_target_relative_offset = 0;
+    Number m_target_size = 0;
     Stream<const u8> m_source;
     Stream<u8> m_target;
     Stream<const u8> m_patch;
@@ -243,7 +247,7 @@ public:
     u32 m_size;
 };
 
-static inline bool ApplyCodeBpsPatch(u8 *code, u32 size, u64 prog_id)
+static inline bool ApplyCodeBpsPatch(u8 *code, u32 *code_size, u32 max_size, u64 prog_id)
 {
     bool isSysmodule = (prog_id >> 32) == 0x00040130;
     util::File patch_file;
@@ -268,22 +272,23 @@ static inline bool ApplyCodeBpsPatch(u8 *code, u32 size, u64 prog_id)
 
     // Temporarily use APPLICATION memory to store the source and patch data.
     ScopedAppHeap memory;
-    if (memory.m_size < size + patch_size) {
+    if (memory.m_size < max_size + patch_size) {
         return false;
     }
 
     u8 *source_data = reinterpret_cast<u8 *>(memory.BaseAddress);
-    u8 *patch_data = source_data + size;
-    std::memcpy(source_data, code, size);
+    u8 *patch_data = source_data + max_size;
+    std::memcpy(source_data, code, max_size);
     if(!patch_file.Read(patch_data, patch_size, 0))
         return false;
 
-    Bps::Stream<const u8> source_stream{source_data, size};
-    Bps::Stream target_stream{code, size};
+    Bps::Stream<const u8> source_stream{source_data, max_size};
+    Bps::Stream target_stream{code, max_size};
     Bps::Stream<const u8> patch_stream{patch_data, patch_size};
     Bps::PatchApplier applier{source_stream, target_stream, patch_stream};
     if(!applier.Apply())
         svcBreak(USERBREAK_PANIC);
+    *code_size = applier.TargetSize();
     return true;
 }
 
@@ -291,8 +296,8 @@ static inline bool ApplyCodeBpsPatch(u8 *code, u32 size, u64 prog_id)
 
 extern "C"
 {
-    bool patcherApplyCodeBpsPatch(u8 *code, u32 size, u64 progId)
+    bool patcherApplyCodeBpsPatch(u8 *code, u32 *codeSize, u32 maxSize, u64 progId)
     {
-        return patcher::ApplyCodeBpsPatch(code, size, progId);
+        return patcher::ApplyCodeBpsPatch(code, codeSize, maxSize, progId);
     }
 }
