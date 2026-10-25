@@ -241,7 +241,8 @@ bool configureHomebrewAutoboot(void)
     // Check if it is empty, and, of course, bail out if we aren't rebooting from
     // NATIVE_FIRM.
     // Checking if it is empty is necessary to let us reboot from autobooted hbmenu
-    // to hbmenu.
+    // to hbmenu. Actually, I don't exactly remember when this come into play? Maybe
+    // when NS doesn't boot HOME Menu and APT Reboot isn't used? TODO: revisit
 
     if (mode != 0)
         return false;
@@ -252,7 +253,12 @@ bool configureHomebrewAutoboot(void)
             if (deliverArg[i] != 0)
                 return false;
         }
-        for (u32 i = 0x440; i < 0x1000; i++)
+        for (u32 i = 0x440; i < 0x540; i++)
+        {
+            if (deliverArg[i] != 0)
+                return false;
+        }
+        for (u32 i = 0xD50; i < 0x1000; i++)
         {
             if (deliverArg[i] != 0)
                 return false;
