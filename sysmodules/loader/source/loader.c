@@ -183,6 +183,7 @@ static Result loadCode(const ExHeader_Info *exhi, u64 programHandle, const prog_
         return 0;
     }
 
+    u32 codeSize = 0;
     bool codeLoadedExternally = false;
     if (CONFIG(PATCHGAMES))
     {
@@ -194,7 +195,7 @@ static Result loadCode(const ExHeader_Info *exhi, u64 programHandle, const prog_
     }
 
     if (codeLoadedExternally)
-        codeLoadedExternally = loadTitleCodeSection(titleId, (u8 *)mapped->text_addr, (u64)mapped->total_size << 12);
+        codeLoadedExternally = loadTitleCodeSection((u8 *)mapped->text_addr, &codeSize, (u64)mapped->total_size << 12, titleId);
 
     if(!codeLoadedExternally)
     {
@@ -220,12 +221,18 @@ static Result loadCode(const ExHeader_Info *exhi, u64 programHandle, const prog_
         assertSuccess(IFile_Read(&file, &total, (void *)mapped->text_addr, size));
         IFile_Close(&file); // done reading
 
+        codeSize = (u32)size;
+
         // decompress
         if (isCompressed)
+        {
+            // The last word of the LZSS footer is the size increase after decompression
+            codeSize += *((u32 *)((u8 *)mapped->text_addr + size) - 1);
             lzss_decompress((u8 *)mapped->text_addr + size);
+        }
     }
 
-    patchCode(titleId, csi->flags.remaster_version, (u8 *)mapped->text_addr, mapped->total_size << 12, csi->text.size, csi->rodata.size, csi->data.size, csi->rodata.address, csi->data.address);
+    patchCode((u8 *)mapped->text_addr, mapped->total_size << 12, codeSize, titleId, csi->flags.remaster_version, csi->text.size, csi->rodata.size, csi->data.size, csi->rodata.address, csi->data.address);
 
     return 0;
 }
