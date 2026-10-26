@@ -510,21 +510,27 @@ bool doLumaUpgradeProcess(void)
     // Ensure CTRNAND is mounted
     remountCtrNandPartition(false);
 
+    // Users can opt out of all CTRNAND writes done here. The SD card isn't necessarily mounted
+    // when booting from CTRNAND, so ensure it is
+    bool noNandWrites = mountSdCardPartition(false) &&
+        f_stat("sdmc:/luma/.i_am_fine_with_outdated_luma_on_nand", NULL) == FR_OK;
+
     // Try to boot.firm to CTRNAND, when applicable
 #ifndef BUILD_FOR_EXPLOIT_DEV
-    if (isSdMode && memcmp(launchedPathForFatfs, "sdmc:", 5) == 0)
+    if (!noNandWrites && isSdMode && memcmp(launchedPathForFatfs, "sdmc:", 5) == 0)
         ok = fileCopy(launchedPathForFatfs, "nand:/boot.firm", true, fileCopyBuffer, sizeof(fileCopyBuffer));
 #endif
 
-    // Try to backup essential files
-    ok2 = backupEssentialFiles();
+    // Try to backup essential files (to the current drive, which is CTRNAND when not in SD mode)
+    if (!noNandWrites || isSdMode)
+        ok2 = backupEssentialFiles();
 
     // Clean up some of the old files
     fileDelete("sdmc:/luma/config.bin");
-    fileDelete("nand:/rw/luma/config.bin");
+    if (!noNandWrites) fileDelete("nand:/rw/luma/config.bin");
 
     createDir("sdmc:/luma/payloads");
-    createDir("nand:/rw/luma/payloads");
+    if (!noNandWrites) createDir("nand:/rw/luma/payloads");
 
     return ok && ok2;
 }
