@@ -104,6 +104,8 @@ typedef struct CalendarTime {
 
 // Including NUL terminator
 #define CALENDAR_TIME_STR_SIZE  sizeof("Wed, 31 Dec 2025 23:59")
+#define CALENDAR_TIME_STR_CHS_SIZE sizeof("2025/12/31 周三 23:59")
+#define CALENDAR_TIME_STR_CHS_WIDTH 21
 
 void calendarTimeFromMsSince1900(CalendarTime *out, u64 msSince1900);
 int calendarTimeToString(char *out, const CalendarTime *t); // e.g. "Wed, 31 Dec 2025 23:59"

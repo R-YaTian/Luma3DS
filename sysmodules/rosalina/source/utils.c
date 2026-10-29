@@ -170,15 +170,12 @@ void calendarTimeFromMsSince1900(CalendarTime *out, u64 msSince1900)
 
 int calendarTimeToString(char *out, const CalendarTime *t)
 {
-    static const char *const shortWeekdayStrs[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-    static const char *const shortMonthStrs[12] = {
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    };
+    static const char *const shortWeekdayStrs[7] = { "周日", "周一", "周二", "周三", "周四", "周五", "周六" };
 
     s32 yyyy = CLAMP(t->year, 0, 9999);
     return sprintf(
-        out, "%s, %02d %s %04ld %02d:%02d",
-        shortWeekdayStrs[t->weekday], t->day, shortMonthStrs[t->month - 1], yyyy, t->hour, t->minute
+        out, "%04ld/%02d/%02d %s %02d:%02d",
+        yyyy, t->month, t->day, shortWeekdayStrs[t->weekday], t->hour, t->minute
     );
 }
 

@@ -531,7 +531,7 @@ static void menuDraw(Menu *menu, s32 selected, s32 pageStartIndex)
         ++j;
     }
 
-    char topRightStr[CALENDAR_TIME_STR_SIZE] = { 0 };
+    char topRightStr[CALENDAR_TIME_STR_CHS_SIZE] = { 0 };
     if(miniSocEnabled)
     {
         u32 ip = socGethostid();
@@ -547,8 +547,8 @@ static void menuDraw(Menu *menu, s32 selected, s32 pageStartIndex)
 
     // Also clears what was previously displayed, if it was longer
     Draw_DrawFormattedString(
-        SCREEN_BOT_WIDTH - 10 - SPACING_X * (CALENDAR_TIME_STR_SIZE - 1), 10, COLOR_WHITE,
-        "%*s", (int)(CALENDAR_TIME_STR_SIZE - 1), topRightStr
+        SCREEN_BOT_WIDTH - 10 - SPACING_X / 2 * CALENDAR_TIME_STR_CHS_WIDTH, 10, COLOR_WHITE,
+        "%*s", (int)(CALENDAR_TIME_STR_CHS_SIZE - 1), topRightStr
     );
 
     if(mcuInfoRes == 0)
@@ -562,7 +562,7 @@ static void menuDraw(Menu *menu, s32 selected, s32 pageStartIndex)
                         percentageInt, percentageFrac);
     }
     else
-        Draw_DrawFormattedString(SCREEN_BOT_WIDTH - 10 - SPACING_X * 19, SCREEN_BOT_HEIGHT - 20, COLOR_WHITE, "%19s", "");
+        Draw_DrawFormattedString(16, SCREEN_BOT_HEIGHT - 16, COLOR_WHITE, "%19s", "");
 
     if(isRelease)
         Draw_DrawFormattedString(16, SCREEN_BOT_HEIGHT - 36, COLOR_TITLE, "Luma3DS %s 中文版", versionString);
