@@ -566,8 +566,8 @@ static void menuDraw(Menu *menu, s32 selected, s32 pageStartIndex)
         // Temperature is padded to 3 chars in both units (F >= 32, so at least 2 digits) so that the string length
         // doesn't change when the unit is toggled or when going above 99F
         Draw_DrawFormattedString(16, SCREEN_BOT_HEIGHT - 16, COLOR_WHITE, fahrenheit ?
-                        "温度：%3d°F  电压：%lu.%02luV  电量：%lu.%lu%%" :
-                        "温度：%02d°C  电压：%lu.%02luV  电量：%lu.%lu%%", temperature,
+                        "温度：%3d°F 电压：%lu.%02luV 电量：%lu.%lu%%" :
+                        "温度： %02d°C 电压：%lu.%02luV 电量：%lu.%lu%%", temperature,
                         voltageInt, voltageFrac,
                         percentageInt, percentageFrac);
     }

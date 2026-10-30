@@ -740,7 +740,7 @@ static u32 ScreenFiltersMenu_AdvancedConfigurationDrawChannels(u32 posY, const c
         // Split lines are 37 characters long: pad unified lines to that length to erase leftovers
         floatToString(buf, vals[0], 2, true);
         Draw_DrawFormattedString(30, posY, COLOR_WHITE, "%-13s", label);
-        return Draw_DrawFormattedString(30 + 13 * SPACING_X / 2, posY, COLOR_WHITE, " %13s         \n", buf);
+        return Draw_DrawFormattedString(30 + 13 * SPACING_X / 2, posY, COLOR_WHITE, " %-13s         \n", buf);
     }
 
     // Mark the selected channel on the selected line (in that channel's color), and highlight its
@@ -790,7 +790,7 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
     int pos = 0;
     int mult = 1;
 
-	bool bTopScreen = true;
+    bool bTopScreen = true;
     bool sync = true;
     // Start split if channels already differ, so that all values are shown
     bool split = !ScreenFiltersMenu_IsUnified(&topScreenFilter) || !ScreenFiltersMenu_IsUnified(&bottomScreenFilter);
@@ -805,17 +805,20 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
         posY = 30;
         posY = Draw_DrawString(10, posY, COLOR_WHITE, "使用左/右按键减小或增加设置项的参数值。\n");
         posY = Draw_DrawString(10, posY, COLOR_WHITE, "按住R键更快地更改参数值,A键切换上下屏。\n");
-		posY = Draw_DrawString(10, posY, COLOR_WHITE, "按X选取R/G/B通道(仅单通道调节模式)\n");
+        posY = Draw_DrawString(10, posY, COLOR_WHITE, "按X选取R/G/B通道(仅单通道调节模式)\n");
         posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "双屏幕同时更新：%s (L按键切换)   \n", sync ? "是" : "否");
-		posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "单通道伽马/对比度调节: %s (Y按键切换)\n", split ? "是" : "否") + SPACING_Y / 2;
+        posY = Draw_DrawFormattedString(10, posY, COLOR_WHITE, "单通道伽马/对比度调节: %s (Y按键切换)\n", split ? "是" : "否") + SPACING_Y / 2;
 
         posY = Draw_DrawString(10, posY, COLOR_WHITE, bTopScreen ? "上屏:\n" : "下屏:\n");
         posY = ScreenFiltersMenu_AdvancedConfigurationHelper(bTopScreen ? &topScreenFilter : &bottomScreenFilter, 0, pos, posY, split, channel);
 
+        Draw_FlushFramebuffer();
+        Draw_Unlock();
+
         input = waitInputWithTimeoutEx(&held, -1);
         mult = (held & KEY_R) ? 10 : 1;
 
-		if (input & KEY_A)
+        if (input & KEY_A)
             bTopScreen = !bTopScreen;
         if (input & KEY_L)
             sync = !sync;
@@ -842,9 +845,6 @@ void ScreenFiltersMenu_AdvancedConfiguration(void)
             pos = (SCREEN_FILTER_NUM_FIELDS_PER_SCREEN + pos - 1) % SCREEN_FILTER_NUM_FIELDS_PER_SCREEN;
         if (input & KEY_DOWN)
             pos = (pos + 1) % SCREEN_FILTER_NUM_FIELDS_PER_SCREEN;
-
-        Draw_FlushFramebuffer();
-        Draw_Unlock();
     }
     while(!(input & KEY_B) && !menuShouldExit);
 }

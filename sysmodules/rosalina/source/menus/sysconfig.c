@@ -123,9 +123,9 @@ void SysConfigMenu_SetLedMasterBrightnessOverride(void)
         SysConfigMenu_DrawOverrideStatus(override);
         Draw_DrawFormattedString(SYSCONFIG_COL(0), SYSCONFIG_ROW(3), COLOR_WHITE, "覆盖值:     %u%%  ", curPct);
         Draw_DrawString(SYSCONFIG_COL(0), SYSCONFIG_ROW(5), COLOR_WHITE,
-            "按A切换，按B返回\n"
-            "使用左/右按键以步进10来减小或增加值\n"
-            "使用上/下按键以步进1来增加或减小值\n"
+            "按A切换覆盖设置，按B返回\n"
+            "使用左/右按键以步进10来减小/增大值\n"
+            "使用上/下按键以步进1来增大/减小值\n"
             "按X以清除或刷新覆盖值\n"
         );
         Draw_FlushFramebuffer();
@@ -739,22 +739,20 @@ void SysConfigMenu_AdjustVolume(void)
         Draw_DrawString(10, 10, COLOR_TITLE, "音量滑块覆盖设置");
         SysConfigMenu_DrawOverrideStatus(override);
         Draw_DrawFormattedString(SYSCONFIG_COL(0), SYSCONFIG_ROW(3), COLOR_WHITE, "   覆盖值:      %-10s    ", volumeStr);
-        Draw_DrawFormattedString(SYSCONFIG_COL(0), SYSCONFIG_ROW(4), COLOR_WHITE, "   立体声均衡:  %-10s    ", balanceStr);
+        Draw_DrawFormattedString(SYSCONFIG_COL(0), SYSCONFIG_ROW(4), COLOR_WHITE, "   立体声平衡:  %-10s    ", balanceStr);
         for (u32 i = 0; i < 2; i++)
             Draw_DrawString(SYSCONFIG_COL(0), SYSCONFIG_ROW(3 + i), COLOR_TITLE, i == pos ? ">" : " ");
-        Draw_DrawString(SYSCONFIG_COL(0), SYSCONFIG_ROW(6), COLOR_WHITE,
-            "Press Up/Down to select value.\n"
-            "Press Right/Left to +/- by 1 point.\n"
-            "Hold R to adjust by 10 points.\n\n"
-            "Press A to toggle override.\n"
-            "Press X to clear or refresh volume.\n"
-            "Press Y to center stereo balance.\n"
-            "Press B to go back.\n"
+        Draw_DrawString(SYSCONFIG_COL(0), SYSCONFIG_ROW(5), COLOR_WHITE,
+            "上下键切换设置项，左右键减小/增加值\n"
+            "按住R按键以步进10调整数值\n"
+            "按A切换覆盖设置，按B返回\n"
+            "按X以清除或刷新音量\n"
+            "按Y重置立体声平衡设置\n"
         );
         if (R_FAILED(res))
-            Draw_DrawFormattedString(SYSCONFIG_COL(0), SYSCONFIG_ROW(15), COLOR_RED, "Failed: 0x%08lX", res);
+            Draw_DrawFormattedString(SYSCONFIG_COL(0), SYSCONFIG_ROW(10), COLOR_RED, "失败: 0x%08lX", res);
         else
-            Draw_DrawString(SYSCONFIG_COL(0), SYSCONFIG_ROW(15), COLOR_WHITE, "                  ");
+            Draw_DrawString(SYSCONFIG_COL(0), SYSCONFIG_ROW(10), COLOR_WHITE, "                  ");
         Draw_FlushFramebuffer();
         Draw_Unlock();
 
