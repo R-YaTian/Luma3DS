@@ -732,7 +732,8 @@ static u32 ScreenFiltersMenu_AdvancedConfigurationDrawChannels(u32 posY, const c
     {
         // Split lines are 37 characters long: pad unified lines to that length to erase leftovers
         floatToString(buf, vals[0], 2, true);
-        return Draw_DrawFormattedString(30, posY, COLOR_WHITE, "%-13s%13s           \n", label, buf);
+        Draw_DrawFormattedString(30, posY, COLOR_WHITE, "%-13s", label);
+        return Draw_DrawFormattedString(30 + 13 * SPACING_X / 2, posY, COLOR_WHITE, " %13s         \n", buf);
     }
 
     // Mark the selected channel on the selected line (in that channel's color), and highlight its
@@ -753,7 +754,7 @@ static u32 ScreenFiltersMenu_AdvancedConfigurationDrawChannels(u32 posY, const c
         posX += 6 * SPACING_X / 2;
     }
 
-    return _PosY;
+    return _PosY + SPACING_Y + 4;
 }
 
 static u32 ScreenFiltersMenu_AdvancedConfigurationHelper(const ScreenFilter *filter, int offset, int pos, u32 posY, bool split, u32 channel)
@@ -768,7 +769,7 @@ static u32 ScreenFiltersMenu_AdvancedConfigurationHelper(const ScreenFilter *fil
     posY = ScreenFiltersMenu_AdvancedConfigurationDrawChannels(posY, "对比度:", filter->contrast, pos == offset + SCREEN_FILTER_FIELD_CONTRAST, split, channel);
 
     Draw_DrawCharacter(10, posY, COLOR_TITLE, pos == offset + SCREEN_FILTER_FIELD_INVERT ? '>' : ' ');
-    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "反色:      %13s    \n", filter->invert ? "是" : "否");
+    posY = Draw_DrawFormattedString(30, posY, COLOR_WHITE, "反色: %13s    \n", filter->invert ? "是" : "否");
 
     return posY;
 }

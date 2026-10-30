@@ -547,7 +547,7 @@ static void menuDraw(Menu *menu, s32 selected, s32 pageStartIndex)
 
     // Also clears what was previously displayed, if it was longer
     Draw_DrawFormattedString(
-        SCREEN_BOT_WIDTH - 10 - SPACING_X / 2 * CALENDAR_TIME_STR_CHS_WIDTH, 10, COLOR_WHITE,
+        SCREEN_BOT_WIDTH - 10 - SPACING_X / 2 * CALENDAR_TIME_STR_CHS_WIDTH, 0, COLOR_WHITE,
         "%*s", (int)(CALENDAR_TIME_STR_CHS_SIZE - 1), topRightStr
     );
 
